@@ -16,10 +16,12 @@ const correctHueSequence = [
 
 let selectedFaces = new Set();
 const facesData = [
-  { id: 0, isFake: false, skin: '#f5d0a9', eye: '#4a90d9', desc: '正常膚色' },
-  { id: 1, isFake: true, skin: '#e8c4a0', eye: '#ff6b6b', desc: '眼睛色相異常' },
-  { id: 2, isFake: true, skin: '#d4b896', eye: '#3a7bd5', desc: '皮膚偏綠' },
-  { id: 3, isFake: false, skin: '#f0c8a0', eye: '#5a9de0', desc: '正常' }
+  { id: 0, isFake: false, img: 'images/person_normal_m.jpg', label: '受試者 A' },
+  { id: 1, isFake: true,  img: 'images/person_fake_m.jpg',   label: '受試者 B' },
+  { id: 2, isFake: false, img: 'images/person_normal_f.jpg', label: '受試者 C' },
+  { id: 3, isFake: true,  img: 'images/person_fake_f.jpg',   label: '受試者 D' },
+  { id: 4, isFake: false, img: 'images/balloon_normal_rect.jpg', label: '先前影像（正常）' },
+  { id: 5, isFake: true,  img: 'images/balloon_horror_rect.jpg', label: '先前影像（異常）' }
 ];
 
 // Screens
@@ -348,20 +350,13 @@ function initFaces() {
     const card = document.createElement('div');
     card.className = 'face-card';
     card.innerHTML = `
-      <svg class="face-svg" viewBox="0 0 100 100">
-        <ellipse cx="50" cy="55" rx="35" ry="40" fill="${face.skin}"/>
-        <ellipse cx="35" cy="45" rx="8" ry="10" fill="${face.eye}"/>
-        <ellipse cx="65" cy="45" rx="8" ry="10" fill="${face.eye}"/>
-        <ellipse cx="35" cy="45" rx="3" ry="4" fill="#000"/>
-        <ellipse cx="65" cy="45" rx="3" ry="4" fill="#000"/>
-        <path d="M35 70 Q50 80 65 70" stroke="#333" stroke-width="2" fill="none"/>
-      </svg>
-      <p style="font-size:0.8em;margin-top:5px;">受試者 ${face.id + 1}</p>
+      <img src="${face.img}" alt="${face.label}" style="width:120px;height:160px;object-fit:cover;border-radius:4px;">
+      <p style="font-size:0.75em;margin-top:6px;">${face.label}</p>
     `;
     card.onclick = () => toggleFace(face.id, card);
     cont.appendChild(card);
   });
-  document.getElementById('fakes-feedback').textContent = '點選你認為是偽人的對象（可多選）';
+  document.getElementById('fakes-feedback').textContent = '根據你剛才的視力檢測結果，點選所有異常／偽人的對象（可多選）';
 }
 
 function toggleFace(id, card) {
