@@ -228,12 +228,16 @@ canvas {
 .final-sample { --sample-image-height: clamp(120px, 18vw, 205px); position: relative; min-width: 0; padding: 6px; margin: 0; background: linear-gradient(150deg, #103234, #202036); border: 1px solid #3f6b6b; text-align: center; }
 .final-sample:hover { transform: translateY(-2px); }
 .final-sample.selected { background: linear-gradient(135deg, #3b1c38, #3e252e); border-color: var(--red); box-shadow: 0 0 20px rgba(251,106,125,.24); }
+.final-sample.selected .face-label::before { content: '✓ '; color: var(--green); font-weight: 800; }
 .final-sample img { display: block; width: 100%; height: var(--sample-image-height); object-fit: cover; filter: saturate(1.08) sepia(.1) hue-rotate(138deg); }
 .final-sample.selected img { filter: saturate(1.28) contrast(1.05) sepia(.08) hue-rotate(308deg); }
 .final-sample .face-anomaly-layer { position: absolute; z-index: 1; top: 6px; left: 6px; width: calc(100% - 12px); height: var(--sample-image-height); object-fit: cover; pointer-events: none; }
 .final-sample .face-eye-echo { clip-path: inset(23% 50% 64% 29%); transform: translate(2px, 1px); }
 .final-sample .face-mouth-echo { clip-path: inset(54% 35% 33% 37%); transform: translateX(3px) scaleX(1.04); }
+.final-sample .face-eye-tint { clip-path: ellipse(3.2% 2.6% at 50% 36%); filter: hue-rotate(86deg) saturate(2.3) contrast(1.12); }
+.final-sample.selected .face-eye-tint { filter: hue-rotate(86deg) saturate(2.3) contrast(1.12); }
 .face-label { display: block; padding-top: 7px; color: #b7d8cd; font-size: .72rem; }
+#btn-submit-fakes { display: block; width: min(100%, 300px); min-height: 48px; margin: 18px auto; }
 
 #jumpscare {
   position: fixed;
@@ -301,6 +305,7 @@ body.scare .screen.active { animation: pulse .55s ease 3; }
 }
 
 @media (max-width: 420px) {
+  /* Stack each A/B pair so the small iris and expression details remain inspectable. */
   .final-pair-choices { grid-template-columns: 1fr; gap: 8px; }
   .final-sample { --sample-image-height: clamp(145px, 54vw, 205px); }
 }

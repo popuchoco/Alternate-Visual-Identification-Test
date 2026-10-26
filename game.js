@@ -32,8 +32,8 @@ const hueRounds = [
 ];
 
 const finalComparisons = [
-  { id: 'person-a', label: '受試者 A / 臉部封存', clue: '兩張幾乎一樣。別只看明暗，留意眼睛與嘴角。', normal: 'images/person_normal_m.jpg', altered: 'images/person_fake_m.jpg', subtleAlteration: true },
-  { id: 'person-c', label: '受試者 C / 第二次拍攝', clue: '第二次影像幾乎一樣。留意眼睛高度與嘴角弧度。', normal: 'images/person_normal_f.jpg', altered: 'images/person_fake_f.jpg', subtleAlteration: true },
+  { id: 'person-a', label: '受試者 A / 臉部封存', clue: '兩張幾乎一樣。別只看明暗，留意眼睛高度與嘴角。', normal: 'images/person_normal_m.jpg', altered: 'images/person_fake_m.jpg', alteration: 'subtle' },
+  { id: 'person-c', label: '受試者 C / 第二次拍攝', clue: '輪廓大致相同。比較瞳孔的色調與反光。', normal: 'images/person_normal_f.jpg', altered: 'images/person_fake_f.jpg', alteration: 'iris-tint' },
   { id: 'balloon', label: '影像紀錄 14 / 熱氣球', clue: '回想色彩訊號、吊籃與繫索的位置。', normal: 'images/balloon_normal.jpg', altered: 'images/balloon_horror.jpg' },
   { id: 'house', label: '影像紀錄 22 / 小屋', clue: '回想窗格、屋頂線條與原本的光線。', normal: 'images/house_normal.jpg', altered: 'images/house_horror.jpg' }
 ];
@@ -85,12 +85,12 @@ const acuitySteps = [
   },
   {
     size: 42, count: 5, intruders: ['acuity_chart_extreme.png'], mode: 'direction',
-    instruction: '視標又小了一級。只回答框線內 E 的開口方向。那個視標裡的眼睛，不屬於測驗。',
+    instruction: '視標又小了一級。只回答框線內 E 的開口方向。偶發的顯示雜訊不影響作答。',
     options: ['向右', '向左', '向上', '向下']
   },
   {
     size: 31, count: 7, intruders: ['acuity_chart_extreme.png', 'acuity_chart_horror.png'], mode: 'direction',
-    instruction: '最後一排。回答框線內 E 的開口方向。忽略視力表裡那些不該出現的眼睛與臉。',
+    instruction: '最後一排。回答框線內 E 的開口方向。視標列中的其他影像不納入判讀。',
     options: ['向右', '向左', '向上', '向下']
   }
 ];
@@ -364,7 +364,7 @@ function drawPlate() {
   $('plate-progress').textContent = `色點校準 ${currentPlate + 1} / ${plates.length}　｜　${plate.label}`;
   const size = canvas.width;
   $('plate-instruction').textContent = plate.faceEcho
-    ? '……數字旁邊，好像有東西正在看著你。你看到的數字是什麼？'
+    ? '……數字邊緣，好像多出一道弧線。你看到的數字是什麼？'
     : '你看到的數字是什麼？';
   ctx.clearRect(0, 0, size, size);
 
@@ -389,14 +389,14 @@ function drawPlate() {
     const echoCtx = echoCanvas.getContext('2d');
     echoCtx.strokeStyle = '#fff';
     echoCtx.fillStyle = '#fff';
-    echoCtx.lineWidth = 10;
+    echoCtx.lineWidth = 13;
     echoCtx.lineCap = 'round';
     echoCtx.beginPath();
     echoCtx.ellipse(size / 2, size / 2 + 2, 58, 68, 0, 0, Math.PI * 2);
     echoCtx.stroke();
     echoCtx.beginPath();
-    echoCtx.ellipse(size / 2 - 22, size / 2 - 12, 5, 8, 0, 0, Math.PI * 2);
-    echoCtx.ellipse(size / 2 + 22, size / 2 - 12, 5, 8, 0, 0, Math.PI * 2);
+    echoCtx.ellipse(size / 2 - 22, size / 2 - 12, 6, 9, 0, 0, Math.PI * 2);
+    echoCtx.ellipse(size / 2 + 22, size / 2 - 12, 6, 9, 0, 0, Math.PI * 2);
     echoCtx.fill();
     echoCtx.beginPath();
     echoCtx.moveTo(size / 2, size / 2 - 3);
@@ -413,17 +413,18 @@ function drawPlate() {
     const x = size / 2 + (Math.random() - .5) * (size - 30);
     const y = size / 2 + (Math.random() - .5) * (size - 30);
     if (Math.hypot(x - size / 2, y - size / 2) > size / 2 - 16) continue;
-    const radius = 2.5 + Math.random() * 5;
     const pixel = (Math.floor(y) * size + Math.floor(x)) * 4;
+    const isEcho = Boolean(faceEchoData && faceEchoData[pixel] > 128);
+    const radius = (2.5 + Math.random() * 5) * (isEcho ? 1.1 : 1);
     const shiftedY = Math.max(0, Math.min(size - 1, Math.floor(y + Math.sin((x + y) / 22) * (plate.warp || 0))));
     const maskPixel = (shiftedY * size + Math.floor(x)) * 4;
-    const isFigure = maskData[maskPixel] > 128 || Boolean(faceEchoData && faceEchoData[pixel] > 128);
+    const isFigure = maskData[maskPixel] > 128 || isEcho;
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     const hue = isFigure ? plate.figureHue : plate.fieldHue;
     const hueOffset = (Math.random() - .5) * plate.hueJitter * 2;
-    const saturation = 56 + (Math.random() - .5) * 12;
-    const lightness = 58 + (Math.random() - .5) * 12;
+    const saturation = Math.min(88, 56 + (Math.random() - .5) * 12 + (isEcho ? 12 : 0));
+    const lightness = 58 + (Math.random() - .5) * 12 - (isEcho ? 9 : 0);
     ctx.fillStyle = `hsl(${(hue + hueOffset + 360) % 360} ${saturation}% ${lightness}%)`;
     ctx.fill();
   }
@@ -450,7 +451,7 @@ function checkPlate(choice) {
   lockOptions('plate-options');
   if (choice === plates[currentPlate].number) {
     plateCorrect += 1;
-  } else {
+  } else if (currentPlate >= 4) {
     addDistortion(7);
   }
 
@@ -477,7 +478,7 @@ function checkPlate(choice) {
     return;
   }
 
-  setFeedback('plate-feedback', '答案已記錄。請繼續下一張。', choice === plates[currentPlate].number ? 'green' : '');
+  setFeedback('plate-feedback', '答案已記錄。請繼續下一張。');
   window.setTimeout(advancePlate, 1050);
 }
 
@@ -575,10 +576,8 @@ function checkHue() {
     }, 700);
   } else if (hueAttempts === 1) {
     actionLocked = false;
-    addDistortion(10);
-    setFeedback('hue-feedback', '色差未通過。請再檢視本組色階。', 'amber');
+    setFeedback('hue-feedback', '這組尚未符合參照色階。請重新排列後再試一次。');
   } else {
-    addDistortion(15);
     setFeedback('hue-feedback', '本組結果已記錄，將繼續下一組。');
     window.setTimeout(() => {
       actionLocked = false;
@@ -660,9 +659,10 @@ function checkVision(choice, step) {
   actionLocked = true;
   lockOptions('vision-options');
   const correct = choice === step.correct;
-  if (correct) {
-    const message = visionStep < 2 ? '判讀相符。請勿回頭查看上一張影像。' : '判讀已保存。它知道你看見了。';
-    setFeedback('vision-feedback', message, visionStep < 2 ? 'green' : 'amber');
+  if (visionStep < 2) {
+    setFeedback('vision-feedback', '影像判讀已記錄。請繼續下一張。');
+  } else if (correct) {
+    setFeedback('vision-feedback', '判讀已保存。它知道你看見了。', 'amber');
   } else {
     addDistortion(5);
     setFeedback('vision-feedback', '判讀不一致。影像已被覆寫，原始檔不存在。', 'red');
@@ -750,8 +750,10 @@ function checkAcuity(choice, step) {
   lockOptions('acuity-options');
   const expected = step.mode === 'direction' ? acuityTargetAnswer : step.correct;
   const correct = choice === expected;
-  if (correct) {
-    setFeedback('acuity-feedback', acuityStep < 2 ? '判讀相符。' : '記錄成功。請不要看向螢幕外。', acuityStep < 2 ? 'green' : 'amber');
+  if (acuityStep < 2) {
+    setFeedback('acuity-feedback', '回答已記錄。請繼續下一排。');
+  } else if (correct) {
+    setFeedback('acuity-feedback', '記錄成功。請不要看向螢幕外。', 'amber');
   } else {
     addDistortion(5);
     setFeedback('acuity-feedback', '再看一次。它們剛才眨眼了。', 'red');
@@ -791,7 +793,9 @@ function renderRecordStep() {
 
   const record = recordsData[recordStep];
   $('records-instruction').textContent = record.instruction
-    || '這些是剛才視力檢測時封存的影像，請確認哪一張還保留原始色彩訊號。';
+    || (recordStep === 0
+      ? '剛才的視力檢測影像已被封存。請確認哪一張仍保留原始色彩訊號。'
+      : '比較這兩張封存影像，選出仍保留原始色彩訊號的一張。');
   const normalOnLeft = Math.random() < .5;
   recordNormalSide = normalOnLeft ? 'left' : 'right';
   $('records-progress').textContent = `記憶封存 ${String(recordStep + 1).padStart(2, '0')} / ${recordsData.length}　｜　${record.label}`;
@@ -884,17 +888,19 @@ function initFaces() {
       card.type = 'button';
       card.className = 'final-sample';
       card.dataset.kind = version.kind;
+      card.dataset.versionLabel = `比對版本 ${index === 0 ? 'A' : 'B'}`;
       card.setAttribute('aria-pressed', 'false');
       card.setAttribute('aria-label', `${comparison.label}，版本 ${index === 0 ? 'A' : 'B'}`);
       const image = document.createElement('img');
-      const subtleAlteration = version.kind === 'altered' && comparison.subtleAlteration;
-      image.src = subtleAlteration ? comparison.normal : version.image;
+      const alteration = version.kind === 'altered' ? comparison.alteration : null;
+      const usesMatchedBase = alteration === 'subtle' || alteration === 'iris-tint';
+      image.src = usesMatchedBase ? comparison.normal : version.image;
       image.alt = `${comparison.label}，比對版本 ${index === 0 ? 'A' : 'B'}`;
       const caption = document.createElement('span');
       caption.className = 'face-label';
-      caption.textContent = `比對版本 ${index === 0 ? 'A' : 'B'}`;
+      caption.textContent = card.dataset.versionLabel;
       card.append(image, caption);
-      if (subtleAlteration) {
+      if (alteration === 'subtle') {
         card.classList.add('subtle-altered');
         ['face-eye-echo', 'face-mouth-echo'].forEach((className) => {
           const echo = document.createElement('img');
@@ -904,6 +910,14 @@ function initFaces() {
           echo.setAttribute('aria-hidden', 'true');
           card.appendChild(echo);
         });
+      } else if (alteration === 'iris-tint') {
+        card.classList.add('iris-tint-altered');
+        const echo = document.createElement('img');
+        echo.className = 'face-anomaly-layer face-eye-tint';
+        echo.src = comparison.normal;
+        echo.alt = '';
+        echo.setAttribute('aria-hidden', 'true');
+        card.appendChild(echo);
       }
       card.addEventListener('click', () => selectFinalVersion(comparison.id, version.kind, choices, card));
       choices.appendChild(card);
@@ -927,6 +941,10 @@ function selectFinalVersion(id, kind, choices, selectedCard) {
     const isChosen = card === selectedCard;
     card.classList.toggle('selected', isChosen);
     card.setAttribute('aria-pressed', String(isChosen));
+    const label = card.dataset.versionLabel;
+    card.setAttribute('aria-label', `${card.getAttribute('aria-label').replace(/，已選取$/, '')}${isChosen ? '，已選取' : ''}`);
+    const caption = card.querySelector('.face-label');
+    if (caption) caption.textContent = isChosen ? `${label} · 已選取` : label;
   });
   updateFinalProgress();
 }
@@ -1045,24 +1063,36 @@ function endGame(success, message, ending) {
   const lastLine = document.createElement('p');
   lastLine.className = 'creepy';
   if (ending === 'witness') {
-    lastLine.textContent = noticedFaceEcho
+    lastLine.textContent = noticedChartAnomaly
+      ? '電話接通了。電話那頭的你問：「色板裡的我，和視標裡的我，你都看見了嗎？」'
+      : noticedFaceEcho
       ? '電話接通了。電話那頭的你，正在問：「你也在色板上看見我了嗎？」'
       : '回報紀錄多了一張簽名照。照片裡的操作員，和你一模一樣。';
   } else if (ending === 'reportConflict') {
     lastLine.textContent = noticedFaceEcho
       ? '最後色板的觀察備註被改成了「正常」。回報時間戳記，早了十七分鐘。'
+      : noticedChartAnomaly
+      ? '視標列異常被移到下一位受試者的檔案。回報時間戳記，早了十七分鐘。'
       : '回報的時間戳記比現在早了十七分鐘。簽名欄裡的名字，卻是下一位受試者。';
   } else if (ending === 'silentWitness') {
     lastLine.textContent = noticedFaceEcho
-      ? '系統把最後一張色板的觀察備註改成「無異常」。電話那頭有人輕聲說：你明明看見我了。'
+      ? noticedChartAnomaly
+        ? '系統同時清除了色板備註與視標紀錄。電話那頭有人輕聲說：你明明兩次都看見我了。'
+        : '系統把最後一張色板的觀察備註改成「無異常」。電話那頭有人輕聲說：你明明看見我了。'
+      : noticedChartAnomaly
+      ? '系統把視標列裡的眼睛改登記成「灰塵」。電話那頭有人輕聲說：你記得我。'
       : '系統把「未回報」自動改成「無異常」。電話那頭有人輕聲說：你明明看見我了。';
   } else if (ending === 'reportedMisidentified') {
     lastLine.textContent = noticedFaceEcho
       ? '最後色板的殘影已留下備註；離場名單仍將替換者標成原始樣本。'
+      : noticedChartAnomaly
+      ? '你回報了視標列的眼睛；紀錄卻把它標成原始視標，准許它離場。'
       : '你的回報裡寫著「異常視標」。離場名單裡，那個異常被標成了原始樣本。';
   } else if (ending === 'silentMisidentified') {
     lastLine.textContent = noticedFaceEcho
       ? '你替最後色板邊緣的異樣留下備註，監視器裡的人卻替你按下了「我看見了」。'
+      : noticedChartAnomaly
+      ? '你沒有留下回報。視標裡的那雙眼睛，卻在離場名單上替你簽了名。'
       : '你沒有留下回報。監視器裡的人卻替你按下了「我看見了」。';
   } else if (ending === 'silentEcho') {
     lastLine.textContent = '你的觀察備註被系統重新標成「正常辨識」。走廊裡，誰也沒有承認看見那張臉。';
@@ -1092,7 +1122,11 @@ function endGame(success, message, ending) {
       title.textContent = '離場核對中';
       title.style.color = 'var(--amber)';
       result.textContent = '測驗結果：通過。出口影像：未確認。';
-      lastLine.textContent = '等等——螢幕裡的受試者還坐在椅子上。她的眼睛正跟著你移動。';
+      lastLine.textContent = noticedChartAnomaly
+        ? '等等——視標列裡那雙眼睛出現在監視器上，正跟著你移動。'
+        : recordsCorrect === recordsData.length
+        ? '五份記憶都與封存吻合。那為什麼螢幕裡的受試者，還坐在椅子上？'
+        : '等等——螢幕裡的受試者還坐在椅子上。她的眼睛正跟著你移動。';
       document.title = '你還沒有離場｜虹膜色彩校準';
       sting();
       flicker(900);
