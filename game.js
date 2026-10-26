@@ -48,26 +48,48 @@ document.getElementById('btn-to-plates').onclick = () => {
   drawPlate();
 };
 
-// === Plate Generation (simplified Ishihara-like) ===
+// === Plate Generation (proper Ishihara-like with readable numbers) ===
 function drawPlate() {
   const canvas = document.getElementById('plate-canvas');
   const ctx = canvas.getContext('2d');
   const plate = plates[currentPlate];
   ctx.clearRect(0, 0, 400, 400);
 
-  // Background dots
-  for (let i = 0; i < 800; i++) {
-    const x = 200 + (Math.random() - 0.5) * 360;
-    const y = 200 + (Math.random() - 0.5) * 360;
-    if (Math.hypot(x - 200, y - 200) > 180) continue;
-    const r = 3 + Math.random() * 6;
+  // Create an offscreen canvas to use as a text mask
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = 400;
+  maskCanvas.height = 400;
+  const maskCtx = maskCanvas.getContext('2d');
+  maskCtx.fillStyle = '#000';
+  maskCtx.fillRect(0, 0, 400, 400);
+  maskCtx.fillStyle = '#fff';
+  maskCtx.font = 'bold 180px Arial';
+  maskCtx.textAlign = 'center';
+  maskCtx.textBaseline = 'middle';
+  maskCtx.fillText(String(plate.number), 200, 200);
+
+  const maskData = maskCtx.getImageData(0, 0, 400, 400).data;
+
+  // Draw random dots, color based on whether the point is inside the number
+  for (let i = 0; i < 1200; i++) {
+    const x = 200 + (Math.random() - 0.5) * 370;
+    const y = 200 + (Math.random() - 0.5) * 370;
+    if (Math.hypot(x - 200, y - 200) > 185) continue;
+
+    const r = 2.5 + Math.random() * 5.5;
+    const px = Math.floor(x);
+    const py = Math.floor(y);
+    const idx = (py * 400 + px) * 4;
+    const isFigure = maskData[idx] > 128; // white = inside the number
+
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
-    const isFigure = isInNumber(x, y, plate.number);
     if (isFigure) {
-      ctx.fillStyle = Math.random() > 0.5 ? '#c0392b' : '#e74c3c';
+      // Reddish tones for the figure
+      ctx.fillStyle = Math.random() > 0.4 ? '#e74c3c' : '#c0392b';
     } else {
-      ctx.fillStyle = Math.random() > 0.5 ? '#27ae60' : '#2ecc71';
+      // Greenish tones for the background
+      ctx.fillStyle = Math.random() > 0.4 ? '#2ecc71' : '#27ae60';
     }
     ctx.fill();
   }
@@ -82,26 +104,6 @@ function drawPlate() {
     optionsDiv.appendChild(btn);
   });
   document.getElementById('plate-feedback').textContent = '';
-}
-
-function isInNumber(x, y, num) {
-  // Very simplified: draw rough digit shapes by regions
-  const dx = x - 200;
-  const dy = y - 200;
-  if (num === 74) {
-    // Rough 7 and 4
-    return (dx > -40 && dx < 40 && dy > -80 && dy < -20) || 
-           (dx > 10 && dx < 50 && dy > -40 && dy < 40) ||
-           (dx > -60 && dx < -10 && dy > 0 && dy < 60);
-  }
-  if (num === 8) {
-    return Math.hypot(dx, dy + 20) < 40 || Math.hypot(dx, dy - 30) < 35;
-  }
-  if (num === 42) {
-    return (dx > -50 && dx < -10 && dy > -60 && dy < 40) ||
-           (dx > 10 && dx < 50 && dy > -40 && dy < 60);
-  }
-  return false;
 }
 
 function checkPlate(choice, correct) {
