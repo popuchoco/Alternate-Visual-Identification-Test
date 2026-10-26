@@ -28,6 +28,7 @@ const screens = {
   intro: document.getElementById('screen-intro'),
   plates: document.getElementById('screen-plates'),
   hue: document.getElementById('screen-hue'),
+  vision: document.getElementById('screen-vision'),
   fakes: document.getElementById('screen-fakes'),
   ending: document.getElementById('screen-ending')
 };
@@ -167,8 +168,8 @@ document.getElementById('btn-check-hue').onclick = () => {
     fb.textContent = '色相排序完美。你的視覺正常。';
     fb.style.color = '#00ff00';
     setTimeout(() => {
-      showScreen('fakes');
-      initFaces();
+      showScreen('vision');
+      startVisionTest();
     }, 1000);
   } else {
     fb.textContent = '排序錯誤。偽人的色彩缺陷正在影響你……';
@@ -180,6 +181,90 @@ document.getElementById('btn-check-hue').onclick = () => {
     }, 1500);
   }
 };
+
+// === Vision / Astigmatism Test ===
+let visionStep = 0;
+const visionSteps = [
+  {
+    img: 'images/balloon_normal.jpg',
+    instruction: '請選擇你在圓形影像中看到的東西。',
+    options: ['熱氣球', '小房子', '教堂', '什麼都沒有'],
+    correct: '熱氣球'
+  },
+  {
+    img: 'images/house_normal.jpg',
+    instruction: '繼續。這次你看到的是？',
+    options: ['熱氣球', '鄉村小屋', '紅屋頂教堂', '道路'],
+    correct: '鄉村小屋'
+  },
+  {
+    img: 'images/balloon_horror.jpg',
+    instruction: '影像開始變得不穩定……你看到什麼？',
+    options: ['正常熱氣球', '扭曲的東西', '一張臉', '我看不清'],
+    correct: '扭曲的東西'
+  },
+  {
+    img: 'images/house_horror.jpg',
+    instruction: '它在看著你。',
+    options: ['正常小屋', '廢棄的房子', '有東西在窗戶裡', '快關掉'],
+    correct: '有東西在窗戶裡'
+  }
+];
+
+function startVisionTest() {
+  visionStep = 0;
+  showVisionStep();
+}
+
+function showVisionStep() {
+  if (visionStep >= visionSteps.length) {
+    // After last step, trigger jump scare then go to fakes
+    triggerJumpScare(() => {
+      showScreen('fakes');
+      initFaces();
+    });
+    return;
+  }
+  const step = visionSteps[visionStep];
+  document.getElementById('vision-img').src = step.img;
+  document.getElementById('vision-instruction').textContent = step.instruction;
+  const optionsDiv = document.getElementById('vision-options');
+  optionsDiv.innerHTML = '';
+  step.options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.textContent = opt;
+    btn.onclick = () => checkVision(opt, step.correct);
+    optionsDiv.appendChild(btn);
+  });
+  document.getElementById('vision-feedback').textContent = '';
+}
+
+function checkVision(choice, correct) {
+  const fb = document.getElementById('vision-feedback');
+  if (choice === correct) {
+    fb.textContent = visionStep < 2 ? '正確。' : '……你還看得到嗎？';
+    fb.style.color = visionStep < 2 ? '#00ff00' : '#ffaa00';
+  } else {
+    fb.textContent = '不對……';
+    fb.style.color = '#ff3333';
+    document.body.classList.add('flicker');
+    setTimeout(() => document.body.classList.remove('flicker'), 800);
+  }
+  setTimeout(() => {
+    visionStep++;
+    showVisionStep();
+  }, 1000);
+}
+
+function triggerJumpScare(callback) {
+  const scare = document.getElementById('jumpscare');
+  scare.style.display = 'flex';
+  // Optional: play a sound if you add one later
+  setTimeout(() => {
+    scare.style.display = 'none';
+    if (callback) callback();
+  }, 1800);
+}
 
 // === Fake Identification ===
 function initFaces() {

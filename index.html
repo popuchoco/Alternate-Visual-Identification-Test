@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>色彩偽人檢測 | Hue of the Fake</title>
+  <title>視覺偽人檢測 | Alternate Visual Identification Test</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app">
     <!-- Title Screen -->
     <div id="screen-title" class="screen active">
-      <h1 class="glitch" data-text="色彩偽人檢測">色彩偽人檢測</h1>
-      <p class="subtitle">偽人已經滲透了這個世界。<br>只有真正的人類能通過色彩檢測。</p>
+      <h1 class="glitch" data-text="視覺偽人檢測">視覺偽人檢測</h1>
+      <p class="subtitle">偽人已經滲透了這個世界。<br>只有真正的人類能通過完整的視覺檢測。</p>
       <button id="btn-start">開始檢測</button>
       <p class="warning">※ 此為恐怖遊戲，請在黑暗中遊玩 ※</p>
     </div>
@@ -21,7 +21,7 @@
       <div class="narrative">
         <p>「歡迎來到色彩檢測中心。」</p>
         <p>「根據最新報告，偽人的色彩感知存在缺陷。他們無法正確分辨特定色相。」</p>
-        <p>「你將接受兩項測試：色盲板與色相敏感度。通過後，你將進入最終階段——辨識真正的人類。」</p>
+        <p>「你將接受三項測試：色盲板、色相敏感度，以及視力散光檢測。通過後，你將進入最終階段——辨識真正的人類。」</p>
         <p class="creepy">失敗的話……他們就會知道你在這裡。</p>
       </div>
       <button id="btn-to-plates">接受檢測</button>
@@ -43,6 +43,22 @@
       <div id="hue-container"></div>
       <button id="btn-check-hue">確認排列</button>
       <p id="hue-feedback" class="feedback"></p>
+    </div>
+
+    <!-- Vision / Astigmatism Test (Balloon & House) -->
+    <div id="screen-vision" class="screen">
+      <h2>階段三：視力與散光檢測</h2>
+      <p id="vision-instruction">請看清圓形影像中的內容，並選擇你看到的。</p>
+      <div id="vision-image-container">
+        <img id="vision-img" src="" alt="vision test" style="width:320px;height:320px;object-fit:cover;border-radius:50%;border:4px solid #333;">
+      </div>
+      <div id="vision-options" class="options"></div>
+      <p id="vision-feedback" class="feedback"></p>
+    </div>
+
+    <!-- Jump Scare Overlay -->
+    <div id="jumpscare" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;justify-content:center;align-items:center;">
+      <img id="jumpscare-img" src="images/jumpscare.jpg" style="max-width:90%;max-height:90%;">
     </div>
 
     <!-- Fake Identification -->
