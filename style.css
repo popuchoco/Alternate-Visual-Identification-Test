@@ -195,12 +195,34 @@ canvas {
   position: fixed;
   inset: 0;
   z-index: 9999;
+  overflow: hidden;
+  isolation: isolate;
   display: flex;
   align-items: center;
   justify-content: center;
   background: radial-gradient(ellipse at 50% 42%, #123a3b, #101c2b 54%, #211226);
 }
-#jumpscare img { max-width: min(88vw, 520px); max-height: 86vh; object-fit: contain; filter: saturate(1.18) sepia(.12) hue-rotate(138deg); animation: emerge .18s steps(2, end); }
+#jumpscare::before {
+  content: '';
+  position: absolute;
+  inset: -18px;
+  z-index: 0;
+  background: url('images/jumpscare.jpg') center 38% / cover no-repeat;
+  filter: blur(20px) brightness(.38) saturate(1.18);
+  transform: scale(1.06);
+}
+#jumpscare img {
+  position: relative;
+  z-index: 1;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+  filter: saturate(1.18) sepia(.12) hue-rotate(138deg);
+  animation: emerge .18s steps(2, end);
+}
 body.flicker:not(.quiet-motion) { animation: flicker .25s steps(2, end) 3; }
 body.quiet-motion *, body.quiet-motion *::before, body.quiet-motion *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 body.scare .screen.active { animation: pulse .55s ease 3; }

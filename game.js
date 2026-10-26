@@ -62,7 +62,7 @@ const visionSteps = [
 const acuitySteps = [
   {
     img: 'images/chart_normal.jpg',
-    instruction: '這是標準視力表。請選擇最下面一排符號的開口方向。',
+    instruction: '這是示意用方向視標圖（非標準視力檢查）。請看最上方最大的一個 E，判斷它的開口方向。',
     options: ['向右', '向左', '向上', '向下'], correct: '向右'
   },
   {
@@ -677,16 +677,12 @@ function checkRecord(side) {
 }
 
 function triggerJumpScare(callback) {
-  if (!$('motion-toggle').checked) {
-    window.setTimeout(callback, 350);
-    return;
-  }
   $('jumpscare').style.display = 'flex';
   sting();
   window.setTimeout(() => {
     $('jumpscare').style.display = 'none';
     callback();
-  }, 1050);
+  }, 2600);
 }
 
 // The final classification is deliberately a single, irreversible decision.
