@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>視覺偽人檢測 | Alternate Visual Identification Test</title>
+  <title>虹膜色彩校準 | Colour &amp; Perception Lab</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app">
     <header id="facility-header" class="facility-header" hidden>
       <div class="facility-meta">
-        <span class="facility-name">AVIT / 北區視覺檢測中心</span>
-        <span id="facility-state" class="facility-state">連線正常</span>
+        <span class="facility-name">AVIT / 虹膜色彩研究室</span>
+        <span id="facility-state" class="facility-state">顯示穩定</span>
       </div>
       <div class="progress-meta">
         <span id="stage-label">校準程序</span>
-        <span id="signal-label">影像同步 100%</span>
+        <span id="signal-label">顯示穩定 100%</span>
       </div>
       <div class="signal-track" aria-label="影像同步狀態">
         <div id="signal-meter" class="signal-meter"></div>
@@ -24,31 +24,31 @@
 
     <!-- Title Screen -->
     <div id="screen-title" class="screen active">
-      <h1 class="glitch" data-text="視覺偽人檢測">視覺偽人檢測</h1>
-      <p class="eyebrow">ALTERNATE VISUAL IDENTIFICATION TEST / 受試者入口</p>
-      <p class="subtitle">偽人已經學會模仿人的樣子。<br>你能相信的，只剩自己記得的顏色。</p>
-      <button id="btn-start">開始檢測</button>
+      <h1 class="calibration-title">虹膜色彩校準</h1>
+      <p class="eyebrow">COLOUR &amp; PERCEPTION LAB / 受試者入口</p>
+      <p class="subtitle">一份簡短的色點、色階與影像辨識測驗。<br>請在自然亮度下觀看，依直覺作答即可。</p>
+      <button id="btn-start">開始校準</button>
       <div class="accessibility-controls">
         <label><input id="sound-toggle" type="checkbox"> 環境音</label>
         <label><input id="motion-toggle" type="checkbox" checked> 閃爍效果</label>
       </div>
-      <p class="warning">含突發影像與閃爍效果。可隨時關閉閃爍或環境音。</p>
+      <p class="warning">聲音預設關閉；可隨時關閉動態效果。無須登入，也不會使用鏡頭或麥克風。</p>
     </div>
 
     <!-- Intro -->
     <div id="screen-intro" class="screen">
       <div class="narrative">
-        <p>「歡迎來到色彩檢測中心。」</p>
-        <p>「根據最新報告，偽人無法穩定重現人類的色彩輪廓。我們稱它為視網膜殘像。」</p>
-        <p>「它不只出現在人身上。熟悉的氣球、小屋，甚至剛才看過的檢查表，都可能被改寫。請依序完成校色與視力檢測；測試期間，請勿回頭查看已封存的影像。」</p>
-        <p class="creepy">「如果看見畫面裡多出一個人，請不要告訴他你的名字。」</p>
+        <p>歡迎來到虹膜色彩研究室。本次流程包含色點辨讀、色相排序，以及影像輪廓確認。</p>
+        <p>請維持螢幕亮度，並在每個步驟依直覺作答。色相排序可點選兩格互換；每一組都會提供新的色彩範圍。</p>
+        <p>這是互動敘事作品，不是醫療診斷。你的作答只保留在這個分頁的記憶中，不會送出。</p>
       </div>
       <button id="btn-to-plates">接受檢測</button>
     </div>
 
     <!-- Color Blindness Plates -->
     <div id="screen-plates" class="screen">
-      <h2>階段一：色盲檢測板</h2>
+      <h2>階段一：色點辨讀</h2>
+      <p id="plate-progress" class="test-progress">色點校準 1 / 3</p>
       <p>你看到的數字是什麼？</p>
       <canvas id="plate-canvas" width="400" height="400"></canvas>
       <div id="plate-options" class="options"></div>
@@ -57,8 +57,9 @@
 
     <!-- Hue Sensitivity Test -->
     <div id="screen-hue" class="screen">
-      <h2>階段二：色相敏感度</h2>
-      <p>將色塊依正確順序排列（由左至右漸變）。有一格顏色不對，請重新檢查。</p>
+      <h2>階段二：色相排序</h2>
+      <p id="hue-progress" class="test-progress">色相排列 1 / 4</p>
+      <p id="hue-instruction">點選兩個色塊即可交換，排成由左至右連續的色彩漸層。最左側色塊為參照。</p>
       <div id="hue-container"></div>
       <button id="btn-check-hue">確認排列</button>
       <p id="hue-feedback" class="feedback"></p>
@@ -81,7 +82,7 @@
 
     <!-- Vision / Astigmatism Test (Balloon & House) -->
     <div id="screen-vision" class="screen">
-      <h2>階段三：視力與散光檢測</h2>
+      <h2>階段三：影像輪廓確認</h2>
       <p id="vision-instruction">請看清圓形影像中的內容，並選擇你看到的。</p>
       <div id="vision-image-container" class="vision-frame">
         <img id="vision-img" src="" alt="視覺測試影像">
@@ -92,7 +93,7 @@
 
     <!-- Acuity Chart Test -->
     <div id="screen-acuity" class="screen">
-      <h2>階段四：視力度數比對</h2>
+      <h2>階段四：視標辨識</h2>
       <p id="acuity-instruction">請指出最下面一排你能清楚辨認的符號方向。</p>
       <img id="acuity-img" src="images/chart_normal.jpg" alt="視力檢測圖">
       <div id="acuity-options" class="options"></div>
@@ -131,6 +132,8 @@
       <button id="btn-restart">重新檢測</button>
     </div>
   </div>
+
+  <div id="attention-note" class="attention-note" role="status" aria-live="polite" hidden></div>
 
   <script src="game.js"></script>
 </body>

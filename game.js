@@ -2,6 +2,7 @@
 // Everything is local/static so it can be hosted directly on GitHub Pages.
 
 const $ = (id) => document.getElementById(id);
+const DEFAULT_PAGE_TITLE = document.title;
 
 const screens = {
   title: $('screen-title'), intro: $('screen-intro'), plates: $('screen-plates'),
@@ -15,9 +16,11 @@ const plates = [
   { number: 42, options: [42, 24, 12, '看不到'] }
 ];
 
-const correctHueSequence = [
-  '#ff0000', '#ff3300', '#ff6600', '#ff9900', '#ffcc00',
-  '#ffff00', '#ccff00', '#99ff00', '#66ff00', '#33ff00'
+const hueRounds = [
+  { name: '青玻璃', count: 6, start: 163, end: 194, saturation: 61, lightness: 60 },
+  { name: '晴空藍', count: 7, start: 198, end: 230, saturation: 64, lightness: 62 },
+  { name: '莓果紫', count: 8, start: 309, end: 342, saturation: 58, lightness: 62 },
+  { name: '柑橘珊瑚', count: 10, start: 18, end: 51, saturation: 68, lightness: 62 }
 ];
 
 const facesData = [
@@ -89,9 +92,12 @@ const recordsData = [
 
 let currentPlate = 0;
 let plateCorrect = 0;
+let plateAnswers = [];
 let hueOrder = [];
 let selectedHueIndex = null;
 let hueAttempts = 0;
+let currentHueRound = 0;
+let hueCorrectRounds = 0;
 let visionStep = 0;
 let acuityStep = 0;
 let recordStep = 0;
@@ -102,6 +108,10 @@ let distortion = 0;
 let hasReportedAnomaly = false;
 let sawEyes = false;
 let actionLocked = false;
+let anomalyRevealed = false;
+let hasSwitchedAway = false;
+let hasReturnedAfterAnomaly = false;
+let attentionTimer = null;
 let ambientContext = null;
 let ambientGain = null;
 
@@ -115,19 +125,27 @@ function updateMonitor(stage, level = distortion) {
   const header = $('facility-header');
   header.hidden = false;
   $('stage-label').textContent = stage;
-  $('signal-label').textContent = `異常訊號 ${Math.round(level)}%`;
-  $('signal-meter').style.setProperty('--signal', `${Math.round(level)}%`);
-  $('signal-meter').style.width = `${Math.round(level)}%`;
+  const displayedLevel = anomalyRevealed ? Math.round(level) : 100;
+  $('signal-label').textContent = anomalyRevealed
+    ? `影像殘差 ${displayedLevel}%`
+    : '顯示穩定 100%';
+  $('signal-meter').style.setProperty('--signal', `${displayedLevel}%`);
+  $('signal-meter').style.width = `${displayedLevel}%`;
 
   const state = $('facility-state');
+  if (!anomalyRevealed) {
+    state.textContent = '顯示穩定';
+    state.classList.remove('alert');
+    return;
+  }
   if (level < 28) {
-    state.textContent = '連線正常';
+    state.textContent = '校對中';
     state.classList.remove('alert');
   } else if (level < 65) {
-    state.textContent = '影像偏移';
+    state.textContent = '色彩偏移';
     state.classList.remove('alert');
   } else {
-    state.textContent = '非本人連線';
+    state.textContent = '樣本不一致';
     state.classList.add('alert');
   }
 }
@@ -190,6 +208,46 @@ function stopAmbient() {
   }
 }
 
+function showAttentionNote(message) {
+  const note = $('attention-note');
+  note.textContent = message;
+  note.hidden = false;
+  window.clearTimeout(attentionTimer);
+  attentionTimer = window.setTimeout(() => { note.hidden = true; }, 5200);
+}
+
+function createHueSequence(round) {
+  return Array.from({ length: round.count }, (_, index) => {
+    const hue = round.start + ((round.end - round.start) * index) / (round.count - 1);
+    return `hsl(${hue.toFixed(1)} ${round.saturation}% ${round.lightness}%)`;
+  });
+}
+
+function revealAnomaly() {
+  anomalyRevealed = true;
+  distortion = Math.max(distortion, 22);
+  document.body.classList.add('unsettled');
+  updateMonitor('封存紀錄校對', distortion);
+  showInterlude();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!anomalyRevealed) return;
+  if (document.hidden) {
+    hasSwitchedAway = true;
+    document.title = '你把它留在這裡了｜虹膜色彩校準';
+    return;
+  }
+  if (hasSwitchedAway && !hasReturnedAfterAnomaly) {
+    hasReturnedAfterAnomaly = true;
+    document.title = '你回來得很快｜虹膜色彩校準';
+    showAttentionNote('你回來了。你的答案沒有被清除。');
+    window.setTimeout(() => {
+      if (!document.hidden) document.title = DEFAULT_PAGE_TITLE;
+    }, 6500);
+  }
+});
+
 function sting() {
   if (!$('sound-toggle').checked || !window.AudioContext) return;
   const context = ambientContext || new AudioContext();
@@ -210,9 +268,12 @@ function sting() {
 function resetGame() {
   currentPlate = 0;
   plateCorrect = 0;
+  plateAnswers = [];
   hueOrder = [];
   selectedHueIndex = null;
   hueAttempts = 0;
+  currentHueRound = 0;
+  hueCorrectRounds = 0;
   visionStep = 0;
   acuityStep = 0;
   recordStep = 0;
@@ -223,6 +284,13 @@ function resetGame() {
   hasReportedAnomaly = false;
   sawEyes = false;
   actionLocked = false;
+  anomalyRevealed = false;
+  hasSwitchedAway = false;
+  hasReturnedAfterAnomaly = false;
+  window.clearTimeout(attentionTimer);
+  $('attention-note').hidden = true;
+  document.title = DEFAULT_PAGE_TITLE;
+  document.body.classList.remove('unsettled');
   document.body.classList.remove('scare', 'flicker');
   $('jumpscare').style.display = 'none';
 }
@@ -250,6 +318,7 @@ function drawPlate() {
   const canvas = $('plate-canvas');
   const ctx = canvas.getContext('2d');
   const plate = plates[currentPlate];
+  $('plate-progress').textContent = `色點校準 ${currentPlate + 1} / ${plates.length}`;
   const size = canvas.width;
   ctx.clearRect(0, 0, size, size);
 
@@ -296,14 +365,14 @@ function drawPlate() {
 function checkPlate(choice) {
   if (actionLocked) return;
   actionLocked = true;
+  plateAnswers[currentPlate] = choice;
   lockOptions('plate-options');
   if (choice === plates[currentPlate].number) {
     plateCorrect += 1;
-    setFeedback('plate-feedback', '判讀相符。系統已保存你的答案。', 'green');
+    setFeedback('plate-feedback', '答案已記錄。請繼續下一張。', 'green');
   } else {
     addDistortion(7);
-    setFeedback('plate-feedback', '判讀不一致。剛才那個數字……是不是也在看你？', 'red');
-    flicker();
+    setFeedback('plate-feedback', '答案已記錄。請繼續下一張。');
   }
   window.setTimeout(() => {
     currentPlate += 1;
@@ -314,22 +383,27 @@ function checkPlate(choice) {
     }
     if (plateCorrect < 2) {
       addDistortion(16);
-      setFeedback('plate-feedback', '色彩校準未通過。系統沒有讓你離開。', 'red');
     }
     distortion = Math.max(distortion, plateCorrect < 2 ? 28 : 16);
-    updateMonitor('階段二 / 色相校準', distortion);
+    if (plateCorrect < 2) setFeedback('plate-feedback', '色點辨讀已完成。結果已記錄。');
+    updateMonitor('階段二 / 色相排序', distortion);
     showScreen('hue');
     initHue();
   }, 1050);
 }
 
-// Hue sorting — one retry turns a cold test into a pressure beat, not a dead end.
+// Hue sorting starts as a calm four-part calibration; the story changes only after it.
 function initHue() {
-  hueOrder = shuffle(correctHueSequence);
+  const round = hueRounds[currentHueRound];
+  const correctSequence = createHueSequence(round);
+  // The first swatch is a fixed anchor, like a familiar hue-grid test.
+  hueOrder = [correctSequence[0], ...shuffle(correctSequence.slice(1))];
   selectedHueIndex = null;
   hueAttempts = 0;
+  $('hue-progress').textContent = `色相排列 ${currentHueRound + 1} / ${hueRounds.length}　｜　${round.name}`;
+  $('hue-instruction').textContent = `點選兩個色塊即可交換，排成由左至右連續的色彩漸層。最左側色塊為參照。本組共 ${round.count} 格。`;
   renderHue();
-  setFeedback('hue-feedback', '點選兩個色塊即可交換位置。');
+  setFeedback('hue-feedback', '校準中。');
 }
 
 function renderHue() {
@@ -364,41 +438,53 @@ function selectHue(index) {
   renderHue();
 }
 
-$('btn-check-hue').addEventListener('click', () => {
+function checkHue() {
   if (actionLocked) return;
   actionLocked = true;
   hueAttempts += 1;
-  const correct = hueOrder.every((color, index) => color === correctHueSequence[index]);
+  const correctSequence = createHueSequence(hueRounds[currentHueRound]);
+  const correct = hueOrder.every((color, index) => color === correctSequence[index]);
   if (correct) {
-    setFeedback('hue-feedback', '排序完成。錄影畫面裡的色塊，似乎比剛才多了一格。', 'green');
+    hueCorrectRounds += 1;
+    setFeedback('hue-feedback', '排列完成。本組校準已記錄。', 'green');
     window.setTimeout(() => {
       actionLocked = false;
-      distortion = Math.max(distortion, 30);
-      updateMonitor('未驗證內線 / 來源不明', distortion);
-      showInterlude();
-    }, 850);
+      currentHueRound += 1;
+      if (currentHueRound < hueRounds.length) {
+        initHue();
+      } else {
+        revealAnomaly();
+      }
+    }, 700);
   } else if (hueAttempts === 1) {
     actionLocked = false;
     addDistortion(10);
-    setFeedback('hue-feedback', '不一致。螢幕邊緣有一格顏色，和你記得的不一樣。再檢查一次。', 'red');
-    flicker(650);
+    setFeedback('hue-feedback', '色差未通過。請再檢視本組色階。', 'amber');
   } else {
     addDistortion(15);
-    setFeedback('hue-feedback', '第二次判讀已記錄。系統偵測到有人替你移動了色塊。', 'red');
+    setFeedback('hue-feedback', '本組結果已記錄，將繼續下一組。');
     window.setTimeout(() => {
       actionLocked = false;
-      distortion = Math.max(distortion, 37);
-      updateMonitor('未驗證內線 / 來源不明', distortion);
-      showInterlude();
-    }, 1150);
+      currentHueRound += 1;
+      if (currentHueRound < hueRounds.length) {
+        initHue();
+      } else {
+        revealAnomaly();
+      }
+    }, 850);
   }
-});
+}
+
+$('btn-check-hue').addEventListener('click', checkHue);
 
 function showInterlude() {
   $('interlude-title').textContent = '值班室呼叫';
-  $('interlude-message').textContent = '我記得第一張色板是 74 號。封存紀錄現在卻寫著 71。別回去確認——系統會說，從頭到尾都是 71。';
+  const firstAnswer = plateAnswers[0] ?? '未作答';
+  $('interlude-message').textContent = `我剛才也看著你的選擇。第一張色板，你按的是「${firstAnswer}」。封存副本卻記著 71。你不需要回去確認——只要想想，你剛才記得的是哪一個。`;
   $('interlude-signature').textContent = '— 夜班操作員 / 內線 03';
   $('interlude-question').textContent = '你要將這段訊息寫入檢測紀錄嗎？';
+  $('btn-report').textContent = '回報：我記得剛才的答案';
+  $('btn-ignore').textContent = '照封存紀錄繼續';
   showScreen('interlude');
 }
 
@@ -644,8 +730,8 @@ $('btn-submit-fakes').addEventListener('click', () => {
   const correctFakes = facesData.filter((face) => face.isFake).map((face) => face.id);
   const isCorrect = correctFakes.every((id) => selectedFaces.has(id)) && selectedFaces.size === correctFakes.length;
 
-  if (isCorrect && (plateCorrect < 2 || recordsCorrect < 3)) {
-    setFeedback('fakes-feedback', '身份判讀相符，但視網膜記憶不一致。門鎖拒絕了你的工號。', 'red');
+  if (isCorrect && (plateCorrect < 2 || hueCorrectRounds < 2 || recordsCorrect < 3)) {
+    setFeedback('fakes-feedback', '身份判讀相符，但前幾段校準紀錄互相矛盾。門鎖拒絕了你的工號。', 'red');
     window.setTimeout(() => endGame(false, '你辨識出了名單上的替換者。可惜，檢測中心認為真正異常的是你。', 'reclassified'), 1500);
   } else if (isCorrect && hasReportedAnomaly) {
     setFeedback('fakes-feedback', '身份判讀相符。但回報紀錄上的操作員，正是你剛剛選出的那張臉。', 'amber');
