@@ -21,6 +21,10 @@
 - 直接以瀏覽器開啟 `index.html`，或用 GitHub Pages 發佈根目錄即可遊玩，不需要建置或伺服器。
 - 色點與視力表是敘事道具，不是色弱、視力或醫療診斷工具。
 
+## GitHub Pages
+
+靜態檔案位於 repository 根目錄。在 **Settings → Pages** 設定由 `main` 分支的根目錄部署；確認 Pages 已啟用後，推送更新會自動發佈。
+
 ## 設計參考與授權處理
 
 視覺節奏參考了 [EnChroma 色覺測試](https://enchroma.com/pages/test) 與 [Arealme 色相測試](https://www.arealme.com/color-hue-test/zh/) 的「先作答、再逐步增加辨識難度」感受。恐怖遊戲參考僅用於理解氣氛、觸發節奏與規則線索的設計方向：
