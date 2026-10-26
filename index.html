@@ -21,7 +21,7 @@
       <div class="narrative">
         <p>「歡迎來到色彩檢測中心。」</p>
         <p>「根據最新報告，偽人的色彩感知存在缺陷。他們無法正確分辨特定色相。」</p>
-        <p>「你將接受三項測試：色盲板、色相敏感度，以及視力散光檢測。通過後，你將進入最終階段——辨識真正的人類。」</p>
+        <p>「你將接受多項測試：色盲板、色相敏感度、視力散光，以及視力度數比對。通過後，你將進入最終階段——辨識真正的人類。」</p>
         <p class="creepy">失敗的話……他們就會知道你在這裡。</p>
       </div>
       <button id="btn-to-plates">接受檢測</button>
@@ -54,6 +54,15 @@
       </div>
       <div id="vision-options" class="options"></div>
       <p id="vision-feedback" class="feedback"></p>
+    </div>
+
+    <!-- Acuity Chart Test -->
+    <div id="screen-acuity" class="screen">
+      <h2>階段四：視力度數比對</h2>
+      <p id="acuity-instruction">請指出最下面一排你能清楚辨認的符號方向。</p>
+      <img id="acuity-img" src="images/chart_normal.jpg" alt="eye chart" style="max-width:90%;max-height:480px;margin:15px auto;display:block;border:1px solid #333;">
+      <div id="acuity-options" class="options"></div>
+      <p id="acuity-feedback" class="feedback"></p>
     </div>
 
     <!-- Jump Scare Overlay -->

@@ -29,6 +29,7 @@ const screens = {
   plates: document.getElementById('screen-plates'),
   hue: document.getElementById('screen-hue'),
   vision: document.getElementById('screen-vision'),
+  acuity: document.getElementById('screen-acuity'),
   fakes: document.getElementById('screen-fakes'),
   ending: document.getElementById('screen-ending')
 };
@@ -218,11 +219,9 @@ function startVisionTest() {
 
 function showVisionStep() {
   if (visionStep >= visionSteps.length) {
-    // After last step, trigger jump scare then go to fakes
-    triggerJumpScare(() => {
-      showScreen('fakes');
-      initFaces();
-    });
+    // After balloon/house, go to acuity chart
+    showScreen('acuity');
+    startAcuityTest();
     return;
   }
   const step = visionSteps[visionStep];
@@ -259,11 +258,83 @@ function checkVision(choice, correct) {
 function triggerJumpScare(callback) {
   const scare = document.getElementById('jumpscare');
   scare.style.display = 'flex';
-  // Optional: play a sound if you add one later
   setTimeout(() => {
     scare.style.display = 'none';
     if (callback) callback();
   }, 1800);
+}
+
+// === Acuity Chart Test ===
+let acuityStep = 0;
+const acuitySteps = [
+  {
+    img: 'images/chart_normal.jpg',
+    instruction: '這是標準視力表。請選擇最下面一排符號的開口方向。',
+    options: ['向右', '向左', '向上', '向下'],
+    correct: '向右'
+  },
+  {
+    img: 'images/chart_normal.jpg',
+    instruction: '請再確認一次中間幾排。一切看起來正常嗎？',
+    options: ['正常', '有點模糊', '符號在動', '我看不太清楚'],
+    correct: '正常'
+  },
+  {
+    img: 'images/chart_horror.jpg',
+    instruction: '……下面的符號怎麼了？',
+    options: ['還是E', '變成臉了', '在看我', '關掉它'],
+    correct: '變成臉了'
+  },
+  {
+    img: 'images/chart_extreme.jpg',
+    instruction: '它們都在看著你。',
+    options: ['只是圖表', '很多眼睛', '我不想看了', '它們在笑'],
+    correct: '很多眼睛'
+  }
+];
+
+function startAcuityTest() {
+  acuityStep = 0;
+  showAcuityStep();
+}
+
+function showAcuityStep() {
+  if (acuityStep >= acuitySteps.length) {
+    triggerJumpScare(() => {
+      showScreen('fakes');
+      initFaces();
+    });
+    return;
+  }
+  const step = acuitySteps[acuityStep];
+  document.getElementById('acuity-img').src = step.img;
+  document.getElementById('acuity-instruction').textContent = step.instruction;
+  const optionsDiv = document.getElementById('acuity-options');
+  optionsDiv.innerHTML = '';
+  step.options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.textContent = opt;
+    btn.onclick = () => checkAcuity(opt, step.correct);
+    optionsDiv.appendChild(btn);
+  });
+  document.getElementById('acuity-feedback').textContent = '';
+}
+
+function checkAcuity(choice, correct) {
+  const fb = document.getElementById('acuity-feedback');
+  if (choice === correct) {
+    fb.textContent = acuityStep < 2 ? '正確。' : '……';
+    fb.style.color = acuityStep < 2 ? '#00ff00' : '#ffaa00';
+  } else {
+    fb.textContent = '再看一次。';
+    fb.style.color = '#ff3333';
+    document.body.classList.add('flicker');
+    setTimeout(() => document.body.classList.remove('flicker'), 600);
+  }
+  setTimeout(() => {
+    acuityStep++;
+    showAcuityStep();
+  }, 900);
 }
 
 // === Fake Identification ===
