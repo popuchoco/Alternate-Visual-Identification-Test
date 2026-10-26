@@ -169,6 +169,8 @@ canvas {
 
 .vision-frame { width: min(320px, 75vw); aspect-ratio: 1; margin: 22px auto; overflow: hidden; border: 3px solid #49958c; border-radius: 50%; box-shadow: 0 0 35px rgba(49, 218, 188, .15), 0 0 70px rgba(178, 73, 154, .1); }
 #vision-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.archive-notice:empty { display: none; }
+.archive-notice { max-width: 620px; margin: 10px auto 16px; padding: 8px 12px; color: var(--muted); background: rgba(95, 150, 130, .08); border-left: 2px solid #78b8a1; font-size: .78rem; text-align: left; }
 .acuity-board {
   display: flex;
   align-items: center;
@@ -193,10 +195,15 @@ canvas {
 }
 .acuity-letter { display: block; color: inherit; font-family: Arial, Helvetica, sans-serif; font-weight: 900; line-height: .82; transform-origin: center; user-select: none; }
 .acuity-target { outline: 1px solid #ba7852; outline-offset: 4px; border-radius: 3px; }
-.acuity-archive { display: block; width: 88%; height: 88%; object-fit: cover; object-position: center; border: 1px solid rgba(175, 112, 146, .78); border-radius: 4px; filter: saturate(1.12) contrast(1.08); }
+.acuity-optotype.acuity-archive { border: 0; }
+.acuity-archive-frame { display: grid; place-items: center; width: 76%; height: 76%; overflow: hidden; border: 1px solid rgba(175, 112, 146, .78); border-radius: 3px; }
+.acuity-archive-image { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; filter: saturate(1.12) contrast(1.08); }
+.acuity-archive-eye { transform: scale(1.12); }
+.acuity-archive-skull { transform: scale(.9); }
 .unsettled .acuity-board { background: linear-gradient(120deg, #d9eadf, #f2dce7); border-color: #d4898d; box-shadow: inset 0 0 34px rgba(189, 77, 110, .15), 0 0 34px rgba(189, 77, 110, .1); }
 .unsettled .acuity-target { outline-color: #bd5267; box-shadow: 0 0 13px rgba(220, 79, 113, .35); }
-.unsettled .acuity-archive { border-color: #bd5267; filter: saturate(1.35) contrast(1.15); }
+.unsettled .acuity-archive-frame { border-color: #bd5267; }
+.unsettled .acuity-archive-image { filter: saturate(1.35) contrast(1.15); }
 
 .record-progress { margin: 18px 0; color: var(--amber); font-size: .76rem; letter-spacing: .08em; }
 .records-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 660px; margin: 18px auto 8px; }
@@ -291,6 +298,11 @@ body.scare .screen.active { animation: pulse .55s ease 3; }
   .final-pair-choices { gap: 6px; }
   .final-sample { padding: 5px; }
   .final-sample .face-anomaly-layer { top: 5px; left: 5px; width: calc(100% - 10px); }
+}
+
+@media (max-width: 420px) {
+  .final-pair-choices { grid-template-columns: 1fr; gap: 8px; }
+  .final-sample { --sample-image-height: clamp(145px, 54vw, 205px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

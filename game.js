@@ -20,8 +20,8 @@ const plates = [
   { number: 8, options: [8, 3, 6, '看不到'], label: '基礎紅綠辨讀', figureHue: 17, fieldHue: 125, hueJitter: 6, warp: 0 },
   { number: 42, options: [42, 24, 12, '看不到'], label: '中等色差', figureHue: 18, fieldHue: 96, hueJitter: 7, warp: 0 },
   { number: 35, options: [35, 53, 3, '看不到'], label: '近似色辨讀', figureHue: 21, fieldHue: 70, hueJitter: 7, warp: 0 },
-  { number: 16, options: [16, 18, 76, '看不到'], label: '高度近似色', figureHue: 25, fieldHue: 49, hueJitter: 6, warp: 1.2 },
-  { number: 6, options: [6, 9, 5, '看不到'], label: '極近色辨讀', figureHue: 29, fieldHue: 40, hueJitter: 4, warp: 2, faceEcho: true }
+  { number: 16, options: [16, 18, 76, '看不到'], label: '高度近似色', figureHue: 25, fieldHue: 49, hueJitter: 6, warp: 2.6 },
+  { number: 6, options: [6, 9, 5, '看不到'], label: '極近色辨讀', figureHue: 29, fieldHue: 40, hueJitter: 4, warp: 4.5, faceEcho: true }
 ];
 
 const hueRounds = [
@@ -364,7 +364,7 @@ function drawPlate() {
   $('plate-progress').textContent = `色點校準 ${currentPlate + 1} / ${plates.length}　｜　${plate.label}`;
   const size = canvas.width;
   $('plate-instruction').textContent = plate.faceEcho
-    ? '……數字旁邊，好像有東西。你看到的數字是什麼？'
+    ? '……數字旁邊，好像有東西正在看著你。你看到的數字是什麼？'
     : '你看到的數字是什麼？';
   ctx.clearRect(0, 0, size, size);
 
@@ -609,6 +609,7 @@ function continueToVision() {
   distortion = Math.max(distortion, 43);
   updateMonitor('階段三 / 影像確認', distortion);
   visionStep = 0;
+  $('vision-archive-note').textContent = '內線提醒：接下來的視力影像將自動封存，檢測結束後請核對。';
   showScreen('vision');
   showVisionStep();
 }
@@ -717,12 +718,15 @@ function showAcuityStep() {
       }
       seenTargets += 1;
     } else if (symbol.type === 'archive') {
+      const archiveFrame = document.createElement('span');
+      archiveFrame.className = 'acuity-archive-frame';
       const archive = document.createElement('img');
-      archive.className = 'acuity-archive';
+      archive.className = `acuity-archive-image ${symbol.image.includes('horror') ? 'acuity-archive-skull' : 'acuity-archive-eye'}`;
       archive.src = `images/${symbol.image}`;
       archive.alt = '封存視力表中的異常影像';
       glyph.setAttribute('aria-label', '封存圖表影像侵入視標列');
-      glyph.appendChild(archive);
+      archiveFrame.appendChild(archive);
+      glyph.appendChild(archiveFrame);
     }
     board.appendChild(glyph);
   });
@@ -936,45 +940,46 @@ function resolveFinalOutcome(isCorrect) {
       return {
         success: false,
         ending: 'reportedMisidentified',
-        message: `你回報了異常${noticedFaceEcho ? '，也替最後色板邊緣的異樣留下備註' : ''}；封存吻合 ${recordScore}，但最終仍將一名替換者放進原始名單。`
+        message: `你在內線回報了異常${noticedFaceEcho ? '，也替最後色板旁那個注視你的輪廓留下備註' : '，並在視標列記下眼睛'}；封存吻合 ${recordScore}。然而最終名單把替換者標成原始樣本，放行紀錄已經簽署。`
       };
     }
     if (hasReportedAnomaly) {
-      return { success: false, ending: 'rejected', message: `回報已送出，但封存只有 ${recordScore} 份與記憶吻合。最終名單無法核准。` };
+      return { success: false, ending: 'rejected', message: `你選擇回報，卻沒有在最後色板留下觀察備註；封存僅 ${recordScore} 份與記憶吻合。值班室退回你的報告，最終名單仍未能核准。` };
     }
     if (noticedFaceEcho || (noticedChartAnomaly && recordsCorrect >= 4)) {
       return {
         success: false,
         ending: 'silentMisidentified',
-        message: `你${noticedFaceEcho ? '替最後色板邊緣的異樣留下備註' : '看見視標列裡的眼睛'}，卻沒有回報；封存吻合 ${recordScore}，仍有替換者離場。`
+        message: `你${noticedFaceEcho ? '替最後色板旁注視你的輪廓留下備註' : '記下視標列裡不該出現的眼睛'}，卻沒有回報；封存吻合 ${recordScore}。離場名單已把其中一名替換者登記成原始樣本。`
       };
     }
-    return { success: false, ending: 'misidentified', message: `判讀已封存。你沒有回報異常，且只有 ${recordScore} 份影像吻合。至少一個替換者已離場。` };
+    return { success: false, ending: 'misidentified', message: `你沒有回報異常，也沒有替色板或視標列留下備註；封存只有 ${recordScore} 份與記憶吻合。判讀已封存，至少一名替換者正拿著你的離場許可離開。` };
   }
 
   if (!calibrationPassed) {
     const reportNote = hasReportedAnomaly ? '異常回報已登記；' : '';
-    const echoNote = noticedFaceEcho ? '最後色板的觀察備註已被存檔；' : '';
+    const echoNote = noticedFaceEcho ? '最後色板旁的注視輪廓已被記錄；' : '';
+    const chartNote = noticedChartAnomaly ? '視標列中的眼睛也被列入異常；' : '';
     return {
       success: false,
       ending: 'reclassified',
-      message: `${reportNote}${echoNote}你找回四組原始影像，但校準紀錄互相矛盾（色點 ${plateCorrect}/6、色相 ${hueCorrectRounds}/4、封存 ${recordsScore}）。門鎖拒絕了你的工號。`
+      message: `${reportNote}${echoNote}${chartNote}你在最終比對找回四組原始影像，但前段校準彼此矛盾（色點 ${plateCorrect}/6、色相 ${hueCorrectRounds}/4、封存 ${recordsScore}）。系統把你重新分類為「待確認樣本」，門鎖拒絕辨識你的工號。`
     };
   }
 
   if (hasReportedAnomaly) {
     if (noticedFaceEcho && recordsCorrect >= 4) {
-      const chartNote = noticedChartAnomaly ? '視標列裡的眼睛也與封存對上。' : '第五份視標列仍安靜地留在檔案裡。';
+      const chartNote = noticedChartAnomaly ? '你在視標列記下的眼睛，也和封存異常吻合。' : '你沒有提到視標列裡的眼睛；它仍安靜地留在第五份封存裡。';
       return {
         success: true,
         ending: 'witness',
-        message: `你回報了異常，也替最後色板邊緣的異樣留下備註；封存吻合 ${recordScore}。${chartNote}出口解鎖了，但監視器仍顯示你坐在檢測室裡。`
+        message: `你選擇回報，並在最後色板旁那個注視你的輪廓留下備註；五份比對中 ${recordScore} 與記憶吻合。${chartNote}出口解鎖了，但監視器畫面裡的你仍坐在檢測室，沒有抬頭。`
       };
     }
     return {
       success: true,
       ending: 'reportConflict',
-      message: `你的異常回報已簽收，封存吻合 ${recordScore}；${noticedFaceEcho ? '最後色板的殘影也已登記' : '最後色板沒有留下殘影備註'}。系統仍無法確認你看見的是什麼。`
+      message: `你的異常回報已簽收，五份比對中 ${recordScore} 與記憶吻合；${noticedFaceEcho ? '最後色板旁的注視輪廓也已登記' : '但你沒有記下最後色板旁的輪廓'}。系統仍無法確認你究竟看見了異常，還是只照著封存紀錄作答。`
     };
   }
 
@@ -983,20 +988,26 @@ function resolveFinalOutcome(isCorrect) {
       return {
         success: true,
         ending: 'silentWitness',
-        message: `你替最後色板邊緣的異樣留下備註，並找回 ${recordScore} 份封存，卻沒有回報異常。`
+        message: `你沒有向值班室回報，卻替最後色板旁注視你的輪廓留下備註；五份封存中 ${recordScore} 與記憶吻合。系統把這份沉默的紀錄標成「目擊者」。`
       };
     }
     return {
       success: true,
       ending: 'silentEcho',
-      message: `你替最後色板邊緣的異樣留下備註，但封存只有 ${recordScore} 與記憶吻合。你看見了殘影，卻沒有讓任何人知道。`
+      message: `你替最後色板旁注視你的輪廓留下備註，但封存只有 ${recordScore} 與記憶吻合。你看見了它，卻沒有向值班室回報；系統只把你的備註存進無人值守的檔案。`
     };
   }
 
   if (noticedChartAnomaly && recordsCorrect === recordsData.length) {
-    return { success: true, ending: 'silentWitness', message: '五份影像都與你記得的一樣。你沒有回報；系統仍替你留下了目擊紀錄。' };
+    return { success: true, ending: 'silentWitness', message: '你沒有回報最後色板的輪廓，但記下視標列中那雙不屬於測驗的眼睛；五份封存全與記憶吻合。系統仍替你建立了一筆「目擊者」紀錄。' };
   }
-  return { success: true, ending: 'passed', message: '四組影像皆與最初留存一致。系統已替你簽署離場紀錄。' };
+  return {
+    success: true,
+    ending: 'passed',
+    message: noticedChartAnomaly
+      ? `你沒有回報，也沒有替最後色板留下備註；但視標列裡的眼睛被你記了下來。封存吻合 ${recordScore}，系統仍替你簽署離場紀錄。`
+      : `你沒有回報異常，色板與視標列也沒有留下觀察備註；封存吻合 ${recordScore}。系統判定流程完成，已替你簽署離場紀錄。`
+  };
 }
 
 $('btn-submit-fakes').addEventListener('click', () => {
