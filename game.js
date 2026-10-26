@@ -665,7 +665,7 @@ function showAcuityStep() {
     } else if (symbol.type === 'eyes') {
       const eyes = document.createElement('span');
       eyes.className = 'acuity-eyes';
-      eyes.textContent = '◉ ◉';
+      eyes.innerHTML = '<svg viewBox="0 0 96 40" aria-hidden="true"><path d="M2 20C13 3 33 3 46 20 33 37 13 37 2 20Zm48 0C61 3 81 3 94 20 81 37 61 37 50 20Z" fill="#f2bfd0" stroke="#934f7b" stroke-width="3"/><circle cx="24" cy="20" r="8" fill="#286f69"/><circle cx="72" cy="20" r="8" fill="#286f69"/><circle cx="24" cy="20" r="3" fill="#f5d88f"/><circle cx="72" cy="20" r="3" fill="#f5d88f"/><circle cx="21" cy="17" r="1.8" fill="#fff"/><circle cx="69" cy="17" r="1.8" fill="#fff"/></svg>';
       eyes.setAttribute('aria-label', '一雙眼睛');
       glyph.setAttribute('aria-label', '眼睛樣的異常視標');
       glyph.appendChild(eyes);
