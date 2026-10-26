@@ -60,26 +60,33 @@ const visionSteps = [
   }
 ];
 
+const acuityOrientations = [
+  { rotation: 0, answer: '向右' },
+  { rotation: 90, answer: '向下' },
+  { rotation: 180, answer: '向左' },
+  { rotation: 270, answer: '向上' }
+];
+
 const acuitySteps = [
   {
-    img: 'images/chart_normal.jpg',
-    instruction: '這是示意用方向視標圖（非標準視力檢查）。請看最上方最大的一個 E，判斷它的開口方向。',
-    options: ['向右', '向左', '向上', '向下'], correct: '向右'
+    size: 82, count: 1, intruders: [], mode: 'direction',
+    instruction: '方向視標校準（示意，非標準視力檢查）。請辨認框線標示的最大 E，回答開口方向。',
+    options: ['向右', '向左', '向上', '向下']
   },
   {
-    img: 'images/chart_normal.jpg',
-    instruction: '請再確認一次中間幾排。一切看起來正常嗎？',
-    options: ['正常', '有點模糊', '符號在動', '我看不太清楚'], correct: '正常'
+    size: 58, count: 3, intruders: [], mode: 'direction',
+    instruction: '下一排視標尺寸相同、方向隨機。請辨認框線標示的 E 開口方向。',
+    options: ['向右', '向左', '向上', '向下']
   },
   {
-    img: 'images/chart_horror.jpg',
-    instruction: '……下面的符號怎麼了？',
-    options: ['還是 E', '變成臉了', '在看我', '關掉它'], correct: '變成臉了'
+    size: 42, count: 5, intruders: ['face'], mode: 'direction',
+    instruction: '視標又小了一級。看框線內的 E；旁邊那張臉不屬於這份測驗。',
+    options: ['向右', '向左', '向上', '向下']
   },
   {
-    img: 'images/chart_extreme.jpg',
-    instruction: '它們都在看著你。',
-    options: ['只是圖表', '很多眼睛', '我不想看了', '它們在笑'], correct: '很多眼睛'
+    size: 31, count: 7, intruders: ['eyes', 'face', 'eyes'], mode: 'observation',
+    instruction: '最後一排。視力表裡混進了什麼？',
+    options: ['只是 E 圖表', '很多眼睛', '我不想看了', '它們在笑'], correct: '很多眼睛'
   }
 ];
 
@@ -102,6 +109,7 @@ let currentHueRound = 0;
 let hueCorrectRounds = 0;
 let visionStep = 0;
 let acuityStep = 0;
+let acuityTargetAnswer = null;
 let recordStep = 0;
 let recordsCorrect = 0;
 let recordNormalSide = 'left';
@@ -283,6 +291,7 @@ function resetGame() {
   hueCorrectRounds = 0;
   visionStep = 0;
   acuityStep = 0;
+  acuityTargetAnswer = null;
   recordStep = 0;
   recordsCorrect = 0;
   recordNormalSide = 'left';
@@ -612,8 +621,58 @@ function showAcuityStep() {
     return;
   }
   const step = acuitySteps[acuityStep];
-  $('acuity-img').src = step.img;
   $('acuity-instruction').textContent = step.instruction;
+  const board = $('acuity-board');
+  board.replaceChildren();
+  const symbols = Array.from({ length: step.count }, () => ({ type: 'E' }));
+  const intruderSlots = shuffle(symbols.map((_, index) => index)).slice(0, step.intruders.length);
+  intruderSlots.forEach((slot, index) => { symbols[slot] = { type: step.intruders[index] }; });
+  const targetIndex = step.mode === 'direction'
+    ? Math.floor(Math.random() * symbols.filter((symbol) => symbol.type === 'E').length)
+    : -1;
+  let seenTargets = 0;
+  acuityTargetAnswer = null;
+
+  symbols.forEach((symbol) => {
+    const glyph = document.createElement('div');
+    glyph.className = `acuity-optotype acuity-${symbol.type.toLowerCase()}`;
+    glyph.style.width = `${step.size}px`;
+    glyph.style.height = `${step.size}px`;
+
+    if (symbol.type === 'E') {
+      const orientation = acuityOrientations[Math.floor(Math.random() * acuityOrientations.length)];
+      const letter = document.createElement('span');
+      letter.className = 'acuity-letter';
+      letter.textContent = 'E';
+      letter.style.fontSize = `${step.size}px`;
+      letter.style.transform = `rotate(${orientation.rotation}deg)`;
+      glyph.appendChild(letter);
+      if (seenTargets === targetIndex) {
+        glyph.classList.add('acuity-target');
+        glyph.setAttribute('aria-label', `標記 E，開口${orientation.answer}`);
+        acuityTargetAnswer = orientation.answer;
+      } else {
+        glyph.setAttribute('aria-label', 'E 視標');
+      }
+      seenTargets += 1;
+    } else if (symbol.type === 'face') {
+      const face = document.createElement('img');
+      face.className = 'acuity-face';
+      face.src = Math.random() < .5 ? 'images/person_fake_m.jpg' : 'images/person_fake_f.jpg';
+      face.alt = '混入視力表的人臉';
+      glyph.setAttribute('aria-label', '人臉樣的異常視標');
+      glyph.appendChild(face);
+    } else if (symbol.type === 'eyes') {
+      const eyes = document.createElement('span');
+      eyes.className = 'acuity-eyes';
+      eyes.textContent = '◉ ◉';
+      eyes.setAttribute('aria-label', '一雙眼睛');
+      glyph.setAttribute('aria-label', '眼睛樣的異常視標');
+      glyph.appendChild(eyes);
+    }
+    board.appendChild(glyph);
+  });
+
   const options = $('acuity-options');
   options.replaceChildren();
   step.options.forEach((option) => {
@@ -630,8 +689,9 @@ function checkAcuity(choice, step) {
   if (actionLocked) return;
   actionLocked = true;
   lockOptions('acuity-options');
-  const correct = choice === step.correct;
-  if (acuityStep === acuitySteps.length - 1) sawEyes = choice === '很多眼睛';
+  const expected = step.mode === 'direction' ? acuityTargetAnswer : step.correct;
+  const correct = choice === expected;
+  if (step.mode === 'observation') sawEyes = choice === '很多眼睛';
   if (correct) {
     setFeedback('acuity-feedback', acuityStep < 2 ? '判讀相符。' : '記錄成功。請不要看向螢幕外。', acuityStep < 2 ? 'green' : 'amber');
   } else {
