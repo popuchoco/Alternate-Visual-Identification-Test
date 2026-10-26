@@ -334,6 +334,7 @@ function resetGame() {
   document.title = DEFAULT_PAGE_TITLE;
   document.body.classList.remove('unsettled');
   document.body.classList.remove('scare', 'flicker');
+  $('plate-canvas').classList.remove('face-echo-arrival');
   screens.ending.classList.remove('false-pass', 'false-pass-revealed');
   $('jumpscare').style.display = 'none';
 }
@@ -361,6 +362,11 @@ function drawPlate() {
   const canvas = $('plate-canvas');
   const ctx = canvas.getContext('2d');
   const plate = plates[currentPlate];
+  canvas.classList.remove('face-echo-arrival');
+  if (plate.faceEcho && $('motion-toggle').checked && !document.body.classList.contains('quiet-motion')) {
+    void canvas.offsetWidth;
+    canvas.classList.add('face-echo-arrival');
+  }
   $('plate-progress').textContent = `色點校準 ${currentPlate + 1} / ${plates.length}　｜　${plate.label}`;
   const size = canvas.width;
   $('plate-instruction').textContent = plate.faceEcho
@@ -1064,41 +1070,43 @@ function endGame(success, message, ending) {
   lastLine.className = 'creepy';
   if (ending === 'witness') {
     lastLine.textContent = noticedChartAnomaly
-      ? '電話接通了。電話那頭的你問：「色板裡的我，和視標裡的我，你都看見了嗎？」'
+      ? '電話接通了。你聽見自己的聲音逐字念出備註：「數字邊緣有一道弧線。」接著它問：視標裡的眼睛，你也替它留檔了嗎？'
       : noticedFaceEcho
-      ? '電話接通了。電話那頭的你，正在問：「你也在色板上看見我了嗎？」'
+      ? '電話接通了。你寫下的「弧線」被念了兩遍。第二遍，電話那頭的聲音是從檢測室裡傳來的。'
       : '回報紀錄多了一張簽名照。照片裡的操作員，和你一模一樣。';
   } else if (ending === 'reportConflict') {
     lastLine.textContent = noticedFaceEcho
-      ? '最後色板的觀察備註被改成了「正常」。回報時間戳記，早了十七分鐘。'
+      ? '你寫下「數字邊緣多了一道弧線」。系統把備註改成「色點辨讀錯誤」；回報時間戳記，早了十七分鐘。'
       : noticedChartAnomaly
       ? '視標列異常被移到下一位受試者的檔案。回報時間戳記，早了十七分鐘。'
       : '回報的時間戳記比現在早了十七分鐘。簽名欄裡的名字，卻是下一位受試者。';
   } else if (ending === 'silentWitness') {
     lastLine.textContent = noticedFaceEcho
       ? noticedChartAnomaly
-        ? '系統同時清除了色板備註與視標紀錄。電話那頭有人輕聲說：你明明兩次都看見我了。'
-        : '系統把最後一張色板的觀察備註改成「無異常」。電話那頭有人輕聲說：你明明看見我了。'
+        ? '系統清除了色板備註和視標紀錄；電話那頭卻只念了你寫的那句：「數字邊緣有一道弧線。」'
+        : '系統把「數字邊緣有一道弧線」改成「未辨識」。電話那頭有人照著你的原句，輕聲念了一遍。'
       : noticedChartAnomaly
       ? '系統把視標列裡的眼睛改登記成「灰塵」。電話那頭有人輕聲說：你記得我。'
       : '系統把「未回報」自動改成「無異常」。電話那頭有人輕聲說：你明明看見我了。';
   } else if (ending === 'reportedMisidentified') {
     lastLine.textContent = noticedFaceEcho
-      ? '最後色板的殘影已留下備註；離場名單仍將替換者標成原始樣本。'
+      ? '你把替換者選錯了，但色板旁的「弧線」備註仍留在檔案裡。離場名單的署名欄，現在是你的名字。'
       : noticedChartAnomaly
       ? '你回報了視標列的眼睛；紀錄卻把它標成原始視標，准許它離場。'
       : '你的回報裡寫著「異常視標」。離場名單裡，那個異常被標成了原始樣本。';
   } else if (ending === 'silentMisidentified') {
     lastLine.textContent = noticedFaceEcho
-      ? '你替最後色板邊緣的異樣留下備註，監視器裡的人卻替你按下了「我看見了」。'
+      ? '你寫下「數字邊緣有一道弧線」卻沒有回報。監視器裡的人逐字念出備註，然後用你的工號簽退。'
       : noticedChartAnomaly
       ? '你沒有留下回報。視標裡的那雙眼睛，卻在離場名單上替你簽了名。'
       : '你沒有留下回報。監視器裡的人卻替你按下了「我看見了」。';
   } else if (ending === 'silentEcho') {
-    lastLine.textContent = '你的觀察備註被系統重新標成「正常辨識」。走廊裡，誰也沒有承認看見那張臉。';
+    lastLine.textContent = noticedFaceEcho
+      ? '系統把你記下的「數字邊緣有一道弧線」改標成「色點離群」；原始備註還在，署名欄卻是空的。'
+      : '你的觀察備註被系統重新標成「正常辨識」。走廊裡，誰也沒有承認看見那張臉。';
   } else if (ending === 'passed') {
     lastLine.textContent = noticedFaceEcho
-      ? '最後色板的觀察備註被刪成空白。門外傳來敲門聲，像有人在替你作答。'
+      ? '你寫下「數字邊緣有一道弧線」。門外傳來六聲敲門，停頓的節奏和色板裡六個色點一模一樣。'
       : recordsCorrect === recordsData.length
       ? '五份紀錄都與你記得的一樣。那為什麼門外的走廊，少了一面牆？'
       : noticedChartAnomaly
@@ -1122,7 +1130,9 @@ function endGame(success, message, ending) {
       title.textContent = '離場核對中';
       title.style.color = 'var(--amber)';
       result.textContent = '測驗結果：通過。出口影像：未確認。';
-      lastLine.textContent = noticedChartAnomaly
+      lastLine.textContent = noticedFaceEcho
+        ? '等等——你寫下的「弧線」出現在出口影像裡，正沿著受試者的瞳孔移動。'
+        : noticedChartAnomaly
         ? '等等——視標列裡那雙眼睛出現在監視器上，正跟著你移動。'
         : recordsCorrect === recordsData.length
         ? '五份記憶都與封存吻合。那為什麼螢幕裡的受試者，還坐在椅子上？'
@@ -1136,7 +1146,11 @@ function endGame(success, message, ending) {
         title.textContent = '離場紀錄已封存';
         title.style.color = 'var(--red)';
         result.textContent = '檢測通過。離場確認失敗。';
-        lastLine.textContent = '走廊裡的人剛才回答了你的名字。監視器裡，椅子上的你也在回答。';
+        lastLine.textContent = noticedFaceEcho
+          ? '走廊裡的人剛才回答了你寫下的「弧線」。監視器裡，椅子上的你也在替那張臉回答。'
+          : noticedChartAnomaly
+          ? '視標裡那雙眼睛出現在監視器中；椅子上的你，正望向同一個方向。'
+          : '走廊裡的人剛才回答了你的名字。監視器裡，椅子上的你也在回答。';
         document.title = '有兩個你｜虹膜色彩校準';
       });
     }, 1400);

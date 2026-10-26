@@ -85,6 +85,11 @@ body::before {
 @keyframes glitch { 0%, 100% { transform: translate(0); } 25% { transform: translate(-1px, 1px); } 50% { transform: translate(1px, -1px); } 75% { transform: translate(-1px, -1px); } }
 @keyframes flicker { 0%, 100% { opacity: 1; } 30% { opacity: .78; } 32% { opacity: .35; } 34% { opacity: .95; } 73% { opacity: .65; } }
 @keyframes pulse { 50% { box-shadow: 0 0 0 8px rgba(214,81,75,.07), 0 0 42px rgba(214,81,75,.22); } }
+@keyframes echo-color-drift {
+  0%, 100% { filter: none; }
+  28% { filter: saturate(1.1) contrast(1.02) hue-rotate(-4deg); }
+  64% { filter: saturate(1.06) hue-rotate(3deg); }
+}
 
 h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: 14px; color: #dff8e9; font-weight: 500; letter-spacing: .12em; }
@@ -139,6 +144,7 @@ canvas {
   border-radius: 50%;
   box-shadow: 0 0 34px rgba(49, 218, 188, .16), 0 0 60px rgba(205, 80, 171, .08);
 }
+#plate-canvas.face-echo-arrival { animation: echo-color-drift 1.55s ease-out 1; }
 
 .options { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 15px 0; }
 .options button { min-width: 92px; }
@@ -322,16 +328,16 @@ body.scare .screen.active { animation: pulse .55s ease 3; }
 @media (max-width: 420px) {
   /* Stack each A/B pair so the small iris and expression details remain inspectable. */
   .final-pair-choices { grid-template-columns: 1fr; gap: 8px; }
-  .final-sample { --sample-image-height: clamp(160px, 50vw, 200px); }
-  .final-sample .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 13%); }
-  .final-sample.selected .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 13%); }
+  .final-sample { --sample-image-height: clamp(185px, 54vw, 220px); }
+  .final-sample .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 18%); }
+  .final-sample.selected .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 18%); }
   .final-sample .face-eye-echo { clip-path: inset(13% 50% 74% 29%); }
   .final-sample .face-mouth-echo { clip-path: inset(62% 35% 24% 37%); }
 }
 
 @media (max-width: 360px) {
   .final-sample .face-eye-tint,
-  .final-sample.selected .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 14%); }
+  .final-sample.selected .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 19%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
