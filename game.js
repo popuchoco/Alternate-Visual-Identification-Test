@@ -389,14 +389,14 @@ function drawPlate() {
     const echoCtx = echoCanvas.getContext('2d');
     echoCtx.strokeStyle = '#fff';
     echoCtx.fillStyle = '#fff';
-    echoCtx.lineWidth = 13;
+    echoCtx.lineWidth = 15;
     echoCtx.lineCap = 'round';
     echoCtx.beginPath();
     echoCtx.ellipse(size / 2, size / 2 + 2, 58, 68, 0, 0, Math.PI * 2);
     echoCtx.stroke();
     echoCtx.beginPath();
-    echoCtx.ellipse(size / 2 - 22, size / 2 - 12, 6, 9, 0, 0, Math.PI * 2);
-    echoCtx.ellipse(size / 2 + 22, size / 2 - 12, 6, 9, 0, 0, Math.PI * 2);
+    echoCtx.ellipse(size / 2 - 22, size / 2 - 12, 7, 10, 0, 0, Math.PI * 2);
+    echoCtx.ellipse(size / 2 + 22, size / 2 - 12, 7, 10, 0, 0, Math.PI * 2);
     echoCtx.fill();
     echoCtx.beginPath();
     echoCtx.moveTo(size / 2, size / 2 - 3);
@@ -415,7 +415,7 @@ function drawPlate() {
     if (Math.hypot(x - size / 2, y - size / 2) > size / 2 - 16) continue;
     const pixel = (Math.floor(y) * size + Math.floor(x)) * 4;
     const isEcho = Boolean(faceEchoData && faceEchoData[pixel] > 128);
-    const radius = (2.5 + Math.random() * 5) * (isEcho ? 1.1 : 1);
+    const radius = (2.5 + Math.random() * 5) * (isEcho ? 1.16 : 1);
     const shiftedY = Math.max(0, Math.min(size - 1, Math.floor(y + Math.sin((x + y) / 22) * (plate.warp || 0))));
     const maskPixel = (shiftedY * size + Math.floor(x)) * 4;
     const isFigure = maskData[maskPixel] > 128 || isEcho;
@@ -423,8 +423,8 @@ function drawPlate() {
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     const hue = isFigure ? plate.figureHue : plate.fieldHue;
     const hueOffset = (Math.random() - .5) * plate.hueJitter * 2;
-    const saturation = Math.min(88, 56 + (Math.random() - .5) * 12 + (isEcho ? 12 : 0));
-    const lightness = 58 + (Math.random() - .5) * 12 - (isEcho ? 9 : 0);
+    const saturation = Math.min(92, 56 + (Math.random() - .5) * 12 + (isEcho ? 18 : 0));
+    const lightness = 58 + (Math.random() - .5) * 12 - (isEcho ? 12 : 0);
     ctx.fillStyle = `hsl(${(hue + hueOffset + 360) % 360} ${saturation}% ${lightness}%)`;
     ctx.fill();
   }
