@@ -1,194 +1,34 @@
-// Game state
-let currentPlate = 0;
-let plateCorrect = 0;
+// Hue of the Fake — a short, escalating browser horror game.
+// Everything is local/static so it can be hosted directly on GitHub Pages.
+
+const $ = (id) => document.getElementById(id);
+
+const screens = {
+  title: $('screen-title'), intro: $('screen-intro'), plates: $('screen-plates'),
+  hue: $('screen-hue'), interlude: $('screen-interlude'), vision: $('screen-vision'),
+  acuity: $('screen-acuity'), records: $('screen-records'), fakes: $('screen-fakes'), ending: $('screen-ending')
+};
+
 const plates = [
-  { number: 74, options: [74, 21, 47, "看不到"] },
-  { number: 8, options: [8, 3, 6, "看不到"] },
-  { number: 42, options: [42, 24, 12, "看不到"] }
+  { number: 74, options: [74, 21, 47, '看不到'] },
+  { number: 8, options: [8, 3, 6, '看不到'] },
+  { number: 42, options: [42, 24, 12, '看不到'] }
 ];
 
-let hueOrder = [];
-let selectedHueIndex = null;
 const correctHueSequence = [
   '#ff0000', '#ff3300', '#ff6600', '#ff9900', '#ffcc00',
   '#ffff00', '#ccff00', '#99ff00', '#66ff00', '#33ff00'
 ];
 
-let selectedFaces = new Set();
 const facesData = [
   { id: 0, isFake: false, img: 'images/person_normal_m.jpg', label: '受試者 A' },
-  { id: 1, isFake: true,  img: 'images/person_fake_m.jpg',   label: '受試者 B' },
+  { id: 1, isFake: true, img: 'images/person_fake_m.jpg', label: '受試者 B' },
   { id: 2, isFake: false, img: 'images/person_normal_f.jpg', label: '受試者 C' },
-  { id: 3, isFake: true,  img: 'images/person_fake_f.jpg',   label: '受試者 D' },
-  { id: 4, isFake: false, img: 'images/balloon_normal_rect.jpg', label: '先前影像（正常）' },
-  { id: 5, isFake: true,  img: 'images/balloon_horror_rect.jpg', label: '先前影像（異常）' }
+  { id: 3, isFake: true, img: 'images/person_fake_f.jpg', label: '受試者 D' },
+  { id: 4, isFake: false, img: 'images/balloon_normal_rect.jpg', label: '影像紀錄 E' },
+  { id: 5, isFake: true, img: 'images/balloon_horror_rect.jpg', label: '影像紀錄 F' }
 ];
 
-// Screens
-const screens = {
-  title: document.getElementById('screen-title'),
-  intro: document.getElementById('screen-intro'),
-  plates: document.getElementById('screen-plates'),
-  hue: document.getElementById('screen-hue'),
-  vision: document.getElementById('screen-vision'),
-  acuity: document.getElementById('screen-acuity'),
-  fakes: document.getElementById('screen-fakes'),
-  ending: document.getElementById('screen-ending')
-};
-
-function showScreen(name) {
-  Object.values(screens).forEach(s => s.classList.remove('active'));
-  screens[name].classList.add('active');
-}
-
-// Start
-document.getElementById('btn-start').onclick = () => showScreen('intro');
-document.getElementById('btn-to-plates').onclick = () => {
-  currentPlate = 0;
-  plateCorrect = 0;
-  showScreen('plates');
-  drawPlate();
-};
-
-// === Plate Generation (proper Ishihara-like with readable numbers) ===
-function drawPlate() {
-  const canvas = document.getElementById('plate-canvas');
-  const ctx = canvas.getContext('2d');
-  const plate = plates[currentPlate];
-  ctx.clearRect(0, 0, 400, 400);
-
-  // Create an offscreen canvas to use as a text mask
-  const maskCanvas = document.createElement('canvas');
-  maskCanvas.width = 400;
-  maskCanvas.height = 400;
-  const maskCtx = maskCanvas.getContext('2d');
-  maskCtx.fillStyle = '#000';
-  maskCtx.fillRect(0, 0, 400, 400);
-  maskCtx.fillStyle = '#fff';
-  maskCtx.font = 'bold 180px Arial';
-  maskCtx.textAlign = 'center';
-  maskCtx.textBaseline = 'middle';
-  maskCtx.fillText(String(plate.number), 200, 200);
-
-  const maskData = maskCtx.getImageData(0, 0, 400, 400).data;
-
-  // Draw random dots, color based on whether the point is inside the number
-  for (let i = 0; i < 1200; i++) {
-    const x = 200 + (Math.random() - 0.5) * 370;
-    const y = 200 + (Math.random() - 0.5) * 370;
-    if (Math.hypot(x - 200, y - 200) > 185) continue;
-
-    const r = 2.5 + Math.random() * 5.5;
-    const px = Math.floor(x);
-    const py = Math.floor(y);
-    const idx = (py * 400 + px) * 4;
-    const isFigure = maskData[idx] > 128; // white = inside the number
-
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    if (isFigure) {
-      // Reddish tones for the figure
-      ctx.fillStyle = Math.random() > 0.4 ? '#e74c3c' : '#c0392b';
-    } else {
-      // Greenish tones for the background
-      ctx.fillStyle = Math.random() > 0.4 ? '#2ecc71' : '#27ae60';
-    }
-    ctx.fill();
-  }
-
-  // Options
-  const optionsDiv = document.getElementById('plate-options');
-  optionsDiv.innerHTML = '';
-  plate.options.forEach(opt => {
-    const btn = document.createElement('button');
-    btn.textContent = opt;
-    btn.onclick = () => checkPlate(opt, plate.number);
-    optionsDiv.appendChild(btn);
-  });
-  document.getElementById('plate-feedback').textContent = '';
-}
-
-function checkPlate(choice, correct) {
-  const fb = document.getElementById('plate-feedback');
-  if (choice == correct) {
-    fb.textContent = '正確。你還是人類。';
-    fb.style.color = '#00ff00';
-    plateCorrect++;
-  } else {
-    fb.textContent = '……錯誤。他們正在看著你。';
-    fb.style.color = '#ff3333';
-    document.body.classList.add('flicker');
-    setTimeout(() => document.body.classList.remove('flicker'), 1500);
-  }
-  setTimeout(() => {
-    currentPlate++;
-    if (currentPlate < plates.length) {
-      drawPlate();
-    } else {
-      if (plateCorrect >= 2) {
-        showScreen('hue');
-        initHue();
-      } else {
-        endGame(false, '你的色彩感知不合格。偽人已經確認你的位置。');
-      }
-    }
-  }, 1200);
-}
-
-// === Hue Test ===
-function initHue() {
-  hueOrder = [...correctHueSequence].sort(() => Math.random() - 0.5);
-  renderHue();
-  document.getElementById('hue-feedback').textContent = '';
-}
-
-function renderHue() {
-  const cont = document.getElementById('hue-container');
-  cont.innerHTML = '';
-  hueOrder.forEach((color, i) => {
-    const div = document.createElement('div');
-    div.className = 'hue-block';
-    div.style.background = color;
-    div.onclick = () => selectHue(i);
-    cont.appendChild(div);
-  });
-}
-
-function selectHue(index) {
-  if (selectedHueIndex === null) {
-    selectedHueIndex = index;
-    document.querySelectorAll('.hue-block')[index].classList.add('selected');
-  } else {
-    // Swap
-    [hueOrder[selectedHueIndex], hueOrder[index]] = [hueOrder[index], hueOrder[selectedHueIndex]];
-    selectedHueIndex = null;
-    renderHue();
-  }
-}
-
-document.getElementById('btn-check-hue').onclick = () => {
-  const correct = hueOrder.every((c, i) => c === correctHueSequence[i]);
-  const fb = document.getElementById('hue-feedback');
-  if (correct) {
-    fb.textContent = '色相排序完美。你的視覺正常。';
-    fb.style.color = '#00ff00';
-    setTimeout(() => {
-      showScreen('vision');
-      startVisionTest();
-    }, 1000);
-  } else {
-    fb.textContent = '排序錯誤。偽人的色彩缺陷正在影響你……';
-    fb.style.color = '#ff3333';
-    document.body.classList.add('flicker');
-    setTimeout(() => {
-      document.body.classList.remove('flicker');
-      endGame(false, '你沒能通過色相測試。檢測中心已將你標記為潛在偽人。');
-    }, 1500);
-  }
-};
-
-// === Vision / Astigmatism Test ===
-let visionStep = 0;
 const visionSteps = [
   {
     img: 'images/balloon_normal.jpg',
@@ -210,203 +50,659 @@ const visionSteps = [
   },
   {
     img: 'images/house_horror.jpg',
-    instruction: '它在看著你。',
+    instruction: '它在看著你。窗戶裡有什麼？',
     options: ['正常小屋', '廢棄的房子', '有東西在窗戶裡', '快關掉'],
     correct: '有東西在窗戶裡'
   }
 ];
 
-function startVisionTest() {
-  visionStep = 0;
-  showVisionStep();
-}
-
-function showVisionStep() {
-  if (visionStep >= visionSteps.length) {
-    // After balloon/house, go to acuity chart
-    showScreen('acuity');
-    startAcuityTest();
-    return;
-  }
-  const step = visionSteps[visionStep];
-  document.getElementById('vision-img').src = step.img;
-  document.getElementById('vision-instruction').textContent = step.instruction;
-  const optionsDiv = document.getElementById('vision-options');
-  optionsDiv.innerHTML = '';
-  step.options.forEach(opt => {
-    const btn = document.createElement('button');
-    btn.textContent = opt;
-    btn.onclick = () => checkVision(opt, step.correct);
-    optionsDiv.appendChild(btn);
-  });
-  document.getElementById('vision-feedback').textContent = '';
-}
-
-function checkVision(choice, correct) {
-  const fb = document.getElementById('vision-feedback');
-  if (choice === correct) {
-    fb.textContent = visionStep < 2 ? '正確。' : '……你還看得到嗎？';
-    fb.style.color = visionStep < 2 ? '#00ff00' : '#ffaa00';
-  } else {
-    fb.textContent = '不對……';
-    fb.style.color = '#ff3333';
-    document.body.classList.add('flicker');
-    setTimeout(() => document.body.classList.remove('flicker'), 800);
-  }
-  setTimeout(() => {
-    visionStep++;
-    showVisionStep();
-  }, 1000);
-}
-
-function triggerJumpScare(callback) {
-  const scare = document.getElementById('jumpscare');
-  scare.style.display = 'flex';
-  setTimeout(() => {
-    scare.style.display = 'none';
-    if (callback) callback();
-  }, 1800);
-}
-
-// === Acuity Chart Test ===
-let acuityStep = 0;
 const acuitySteps = [
   {
     img: 'images/chart_normal.jpg',
     instruction: '這是標準視力表。請選擇最下面一排符號的開口方向。',
-    options: ['向右', '向左', '向上', '向下'],
-    correct: '向右'
+    options: ['向右', '向左', '向上', '向下'], correct: '向右'
   },
   {
     img: 'images/chart_normal.jpg',
     instruction: '請再確認一次中間幾排。一切看起來正常嗎？',
-    options: ['正常', '有點模糊', '符號在動', '我看不太清楚'],
-    correct: '正常'
+    options: ['正常', '有點模糊', '符號在動', '我看不太清楚'], correct: '正常'
   },
   {
     img: 'images/chart_horror.jpg',
     instruction: '……下面的符號怎麼了？',
-    options: ['還是E', '變成臉了', '在看我', '關掉它'],
-    correct: '變成臉了'
+    options: ['還是 E', '變成臉了', '在看我', '關掉它'], correct: '變成臉了'
   },
   {
     img: 'images/chart_extreme.jpg',
     instruction: '它們都在看著你。',
-    options: ['只是圖表', '很多眼睛', '我不想看了', '它們在笑'],
-    correct: '很多眼睛'
+    options: ['只是圖表', '很多眼睛', '我不想看了', '它們在笑'], correct: '很多眼睛'
   }
 ];
 
-function startAcuityTest() {
+const recordsData = [
+  { label: '受試者 A / 第一次拍攝', normal: 'images/person_normal_m.jpg', altered: 'images/person_fake_m.jpg' },
+  { label: '物件 14 / 熱氣球影像', normal: 'images/balloon_normal.jpg', altered: 'images/balloon_horror.jpg' },
+  { label: '受試者 C / 第二次拍攝', normal: 'images/person_normal_f.jpg', altered: 'images/person_fake_f.jpg' },
+  { label: '物件 22 / 小屋影像', normal: 'images/house_normal.jpg', altered: 'images/house_horror.jpg' },
+  { label: '視力表 / 封存底片', normal: 'images/chart_normal.jpg', altered: 'images/chart_horror.jpg' }
+];
+
+let currentPlate = 0;
+let plateCorrect = 0;
+let hueOrder = [];
+let selectedHueIndex = null;
+let hueAttempts = 0;
+let visionStep = 0;
+let acuityStep = 0;
+let recordStep = 0;
+let recordsCorrect = 0;
+let recordNormalSide = 'left';
+let selectedFaces = new Set();
+let distortion = 0;
+let hasReportedAnomaly = false;
+let sawEyes = false;
+let actionLocked = false;
+let ambientContext = null;
+let ambientGain = null;
+
+function showScreen(name) {
+  Object.values(screens).forEach((screen) => screen.classList.remove('active'));
+  screens[name].classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateMonitor(stage, level = distortion) {
+  const header = $('facility-header');
+  header.hidden = false;
+  $('stage-label').textContent = stage;
+  $('signal-label').textContent = `異常訊號 ${Math.round(level)}%`;
+  $('signal-meter').style.setProperty('--signal', `${Math.round(level)}%`);
+  $('signal-meter').style.width = `${Math.round(level)}%`;
+
+  const state = $('facility-state');
+  if (level < 28) {
+    state.textContent = '連線正常';
+    state.classList.remove('alert');
+  } else if (level < 65) {
+    state.textContent = '影像偏移';
+    state.classList.remove('alert');
+  } else {
+    state.textContent = '非本人連線';
+    state.classList.add('alert');
+  }
+}
+
+function addDistortion(amount) {
+  distortion = Math.min(96, distortion + amount);
+  updateMonitor($('stage-label').textContent, distortion);
+}
+
+function flicker(duration = 850) {
+  if (!$('motion-toggle').checked) return;
+  document.body.classList.add('flicker');
+  window.setTimeout(() => document.body.classList.remove('flicker'), duration);
+}
+
+function setFeedback(id, message, tone = 'amber') {
+  const colors = { green: 'var(--green)', amber: 'var(--amber)', red: 'var(--red)' };
+  $(id).textContent = message;
+  $(id).style.color = colors[tone] || colors.amber;
+}
+
+function lockOptions(id, locked = true) {
+  $(id).querySelectorAll('button').forEach((button) => { button.disabled = locked; });
+}
+
+function shuffle(items) {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+function startAmbient() {
+  if (!$('sound-toggle').checked || !window.AudioContext) return;
+  if (!ambientContext) {
+    ambientContext = new AudioContext();
+    const first = ambientContext.createOscillator();
+    const second = ambientContext.createOscillator();
+    ambientGain = ambientContext.createGain();
+    first.type = 'sine';
+    second.type = 'sine';
+    first.frequency.value = 47;
+    second.frequency.value = 49;
+    ambientGain.gain.value = 0;
+    first.connect(ambientGain);
+    second.connect(ambientGain);
+    ambientGain.connect(ambientContext.destination);
+    first.start();
+    second.start();
+  }
+  if (ambientContext.state === 'suspended') ambientContext.resume();
+  ambientGain.gain.setTargetAtTime(.018, ambientContext.currentTime, .5);
+}
+
+function stopAmbient() {
+  if (ambientContext && ambientGain) {
+    ambientGain.gain.setTargetAtTime(0, ambientContext.currentTime, .2);
+  }
+}
+
+function sting() {
+  if (!$('sound-toggle').checked || !window.AudioContext) return;
+  const context = ambientContext || new AudioContext();
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = 'sawtooth';
+  oscillator.frequency.setValueAtTime(155, context.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(42, context.currentTime + .45);
+  gain.gain.setValueAtTime(.0001, context.currentTime);
+  gain.gain.exponentialRampToValueAtTime(.12, context.currentTime + .02);
+  gain.gain.exponentialRampToValueAtTime(.0001, context.currentTime + .55);
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start();
+  oscillator.stop(context.currentTime + .6);
+}
+
+function resetGame() {
+  currentPlate = 0;
+  plateCorrect = 0;
+  hueOrder = [];
+  selectedHueIndex = null;
+  hueAttempts = 0;
+  visionStep = 0;
   acuityStep = 0;
-  showAcuityStep();
+  recordStep = 0;
+  recordsCorrect = 0;
+  recordNormalSide = 'left';
+  selectedFaces = new Set();
+  distortion = 3;
+  hasReportedAnomaly = false;
+  sawEyes = false;
+  actionLocked = false;
+  document.body.classList.remove('scare', 'flicker');
+  $('jumpscare').style.display = 'none';
+}
+
+// Start and calibration
+$('btn-start').addEventListener('click', () => {
+  startAmbient();
+  showScreen('intro');
+});
+$('sound-toggle').addEventListener('change', () => {
+  if ($('sound-toggle').checked) startAmbient();
+  else stopAmbient();
+});
+$('motion-toggle').addEventListener('change', () => {
+  document.body.classList.toggle('quiet-motion', !$('motion-toggle').checked);
+});
+$('btn-to-plates').addEventListener('click', () => {
+  resetGame();
+  updateMonitor('階段一 / 色彩校準', 3);
+  showScreen('plates');
+  drawPlate();
+});
+
+function drawPlate() {
+  const canvas = $('plate-canvas');
+  const ctx = canvas.getContext('2d');
+  const plate = plates[currentPlate];
+  const size = canvas.width;
+  ctx.clearRect(0, 0, size, size);
+
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = size;
+  maskCanvas.height = size;
+  const maskCtx = maskCanvas.getContext('2d');
+  maskCtx.fillStyle = '#000';
+  maskCtx.fillRect(0, 0, size, size);
+  maskCtx.fillStyle = '#fff';
+  maskCtx.font = 'bold 180px Arial';
+  maskCtx.textAlign = 'center';
+  maskCtx.textBaseline = 'middle';
+  maskCtx.fillText(String(plate.number), size / 2, size / 2);
+  const maskData = maskCtx.getImageData(0, 0, size, size).data;
+
+  for (let i = 0; i < 1250; i += 1) {
+    const x = size / 2 + (Math.random() - .5) * (size - 30);
+    const y = size / 2 + (Math.random() - .5) * (size - 30);
+    if (Math.hypot(x - size / 2, y - size / 2) > size / 2 - 16) continue;
+    const radius = 2.5 + Math.random() * 5;
+    const pixel = (Math.floor(y) * size + Math.floor(x)) * 4;
+    const isFigure = maskData[pixel] > 128;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = isFigure
+      ? (Math.random() > .4 ? '#dc6656' : '#bd463d')
+      : (Math.random() > .4 ? '#6a9c76' : '#4f7e63');
+    ctx.fill();
+  }
+
+  const options = $('plate-options');
+  options.replaceChildren();
+  plate.options.forEach((option) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = option;
+    button.addEventListener('click', () => checkPlate(option));
+    options.appendChild(button);
+  });
+  setFeedback('plate-feedback', '');
+}
+
+function checkPlate(choice) {
+  if (actionLocked) return;
+  actionLocked = true;
+  lockOptions('plate-options');
+  if (choice === plates[currentPlate].number) {
+    plateCorrect += 1;
+    setFeedback('plate-feedback', '判讀相符。系統已保存你的答案。', 'green');
+  } else {
+    addDistortion(7);
+    setFeedback('plate-feedback', '判讀不一致。剛才那個數字……是不是也在看你？', 'red');
+    flicker();
+  }
+  window.setTimeout(() => {
+    currentPlate += 1;
+    actionLocked = false;
+    if (currentPlate < plates.length) {
+      drawPlate();
+      return;
+    }
+    if (plateCorrect < 2) {
+      addDistortion(16);
+      setFeedback('plate-feedback', '色彩校準未通過。系統沒有讓你離開。', 'red');
+    }
+    distortion = Math.max(distortion, plateCorrect < 2 ? 28 : 16);
+    updateMonitor('階段二 / 色相校準', distortion);
+    showScreen('hue');
+    initHue();
+  }, 1050);
+}
+
+// Hue sorting — one retry turns a cold test into a pressure beat, not a dead end.
+function initHue() {
+  hueOrder = shuffle(correctHueSequence);
+  selectedHueIndex = null;
+  hueAttempts = 0;
+  renderHue();
+  setFeedback('hue-feedback', '點選兩個色塊即可交換位置。');
+}
+
+function renderHue() {
+  const container = $('hue-container');
+  container.replaceChildren();
+  hueOrder.forEach((color, index) => {
+    const block = document.createElement('button');
+    block.type = 'button';
+    block.className = 'hue-block';
+    block.style.background = color;
+    block.setAttribute('aria-label', `色塊 ${index + 1}`);
+    block.setAttribute('aria-pressed', String(selectedHueIndex === index));
+    if (selectedHueIndex === index) block.classList.add('selected');
+    block.addEventListener('click', () => selectHue(index));
+    container.appendChild(block);
+  });
+}
+
+function selectHue(index) {
+  if (selectedHueIndex === null) {
+    selectedHueIndex = index;
+    renderHue();
+    return;
+  }
+  if (selectedHueIndex === index) {
+    selectedHueIndex = null;
+    renderHue();
+    return;
+  }
+  [hueOrder[selectedHueIndex], hueOrder[index]] = [hueOrder[index], hueOrder[selectedHueIndex]];
+  selectedHueIndex = null;
+  renderHue();
+}
+
+$('btn-check-hue').addEventListener('click', () => {
+  if (actionLocked) return;
+  actionLocked = true;
+  hueAttempts += 1;
+  const correct = hueOrder.every((color, index) => color === correctHueSequence[index]);
+  if (correct) {
+    setFeedback('hue-feedback', '排序完成。錄影畫面裡的色塊，似乎比剛才多了一格。', 'green');
+    window.setTimeout(() => {
+      actionLocked = false;
+      distortion = Math.max(distortion, 30);
+      updateMonitor('未驗證內線 / 來源不明', distortion);
+      showInterlude();
+    }, 850);
+  } else if (hueAttempts === 1) {
+    actionLocked = false;
+    addDistortion(10);
+    setFeedback('hue-feedback', '不一致。螢幕邊緣有一格顏色，和你記得的不一樣。再檢查一次。', 'red');
+    flicker(650);
+  } else {
+    addDistortion(15);
+    setFeedback('hue-feedback', '第二次判讀已記錄。系統偵測到有人替你移動了色塊。', 'red');
+    window.setTimeout(() => {
+      actionLocked = false;
+      distortion = Math.max(distortion, 37);
+      updateMonitor('未驗證內線 / 來源不明', distortion);
+      showInterlude();
+    }, 1150);
+  }
+});
+
+function showInterlude() {
+  $('interlude-title').textContent = '值班室呼叫';
+  $('interlude-message').textContent = '我記得第一張色板是 74 號。封存紀錄現在卻寫著 71。別回去確認——系統會說，從頭到尾都是 71。';
+  $('interlude-signature').textContent = '— 夜班操作員 / 內線 03';
+  $('interlude-question').textContent = '你要將這段訊息寫入檢測紀錄嗎？';
+  showScreen('interlude');
+}
+
+function continueToVision() {
+  distortion = Math.max(distortion, 43);
+  updateMonitor('階段三 / 影像確認', distortion);
+  visionStep = 0;
+  showScreen('vision');
+  showVisionStep();
+}
+
+$('btn-report').addEventListener('click', () => {
+  hasReportedAnomaly = true;
+  setFeedback('interlude-question', '異常已寫入。你的工號現在也出現在回報者欄位。', 'green');
+  $('btn-report').disabled = true;
+  $('btn-ignore').disabled = true;
+  window.setTimeout(continueToVision, 900);
+});
+$('btn-ignore').addEventListener('click', () => {
+  addDistortion(9);
+  $('interlude-message').textContent = '「明智的選擇。繼續看著前方。」訊息的時間戳記，比現在早了 17 分鐘。';
+  $('btn-report').disabled = true;
+  $('btn-ignore').disabled = true;
+  window.setTimeout(continueToVision, 1200);
+});
+
+// Familiar images return with subtle differences, then stop pretending to be tests.
+function showVisionStep() {
+  if (visionStep >= visionSteps.length) {
+    distortion = Math.max(distortion, 63);
+    updateMonitor('階段四 / 視力複核', distortion);
+    acuityStep = 0;
+    showScreen('acuity');
+    showAcuityStep();
+    return;
+  }
+  const step = visionSteps[visionStep];
+  $('vision-img').src = step.img;
+  $('vision-instruction').textContent = step.instruction;
+  const options = $('vision-options');
+  options.replaceChildren();
+  step.options.forEach((option) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = option;
+    button.addEventListener('click', () => checkVision(option, step));
+    options.appendChild(button);
+  });
+  setFeedback('vision-feedback', '');
+}
+
+function checkVision(choice, step) {
+  if (actionLocked) return;
+  actionLocked = true;
+  lockOptions('vision-options');
+  const correct = choice === step.correct;
+  if (correct) {
+    const message = visionStep < 2 ? '判讀相符。請勿回頭查看上一張影像。' : '判讀已保存。它知道你看見了。';
+    setFeedback('vision-feedback', message, visionStep < 2 ? 'green' : 'amber');
+  } else {
+    addDistortion(5);
+    setFeedback('vision-feedback', '判讀不一致。影像已被覆寫，原始檔不存在。', 'red');
+    flicker(700);
+  }
+  window.setTimeout(() => {
+    visionStep += 1;
+    actionLocked = false;
+    showVisionStep();
+  }, visionStep > 1 ? 1250 : 950);
 }
 
 function showAcuityStep() {
   if (acuityStep >= acuitySteps.length) {
-    triggerJumpScare(() => {
-      showScreen('fakes');
-      initFaces();
-    });
+    startRecords();
     return;
   }
   const step = acuitySteps[acuityStep];
-  document.getElementById('acuity-img').src = step.img;
-  document.getElementById('acuity-instruction').textContent = step.instruction;
-  const optionsDiv = document.getElementById('acuity-options');
-  optionsDiv.innerHTML = '';
-  step.options.forEach(opt => {
-    const btn = document.createElement('button');
-    btn.textContent = opt;
-    btn.onclick = () => checkAcuity(opt, step.correct);
-    optionsDiv.appendChild(btn);
+  $('acuity-img').src = step.img;
+  $('acuity-instruction').textContent = step.instruction;
+  const options = $('acuity-options');
+  options.replaceChildren();
+  step.options.forEach((option) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = option;
+    button.addEventListener('click', () => checkAcuity(option, step));
+    options.appendChild(button);
   });
-  document.getElementById('acuity-feedback').textContent = '';
+  setFeedback('acuity-feedback', '');
 }
 
-function checkAcuity(choice, correct) {
-  const fb = document.getElementById('acuity-feedback');
-  if (choice === correct) {
-    fb.textContent = acuityStep < 2 ? '正確。' : '……';
-    fb.style.color = acuityStep < 2 ? '#00ff00' : '#ffaa00';
+function checkAcuity(choice, step) {
+  if (actionLocked) return;
+  actionLocked = true;
+  lockOptions('acuity-options');
+  const correct = choice === step.correct;
+  if (acuityStep === acuitySteps.length - 1) sawEyes = choice === '很多眼睛';
+  if (correct) {
+    setFeedback('acuity-feedback', acuityStep < 2 ? '判讀相符。' : '記錄成功。請不要看向螢幕外。', acuityStep < 2 ? 'green' : 'amber');
   } else {
-    fb.textContent = '再看一次。';
-    fb.style.color = '#ff3333';
-    document.body.classList.add('flicker');
-    setTimeout(() => document.body.classList.remove('flicker'), 600);
+    addDistortion(5);
+    setFeedback('acuity-feedback', '再看一次。它們剛才眨眼了。', 'red');
+    flicker(600);
   }
-  setTimeout(() => {
-    acuityStep++;
+  window.setTimeout(() => {
+    acuityStep += 1;
+    actionLocked = false;
     showAcuityStep();
-  }, 900);
+  }, acuityStep > 1 ? 1200 : 900);
 }
 
-// === Fake Identification ===
-function initFaces() {
-  const cont = document.getElementById('faces-container');
-  cont.innerHTML = '';
-  selectedFaces.clear();
-  facesData.forEach(face => {
-    const card = document.createElement('div');
-    card.className = 'face-card';
-    card.innerHTML = `
-      <img src="${face.img}" alt="${face.label}" style="width:120px;height:160px;object-fit:cover;border-radius:4px;">
-      <p style="font-size:0.75em;margin-top:6px;">${face.label}</p>
-    `;
-    card.onclick = () => toggleFace(face.id, card);
-    cont.appendChild(card);
+// Retinal-memory archive: test the same color clues across ordinary people and things.
+function startRecords() {
+  recordStep = 0;
+  recordsCorrect = 0;
+  distortion = Math.max(distortion, 70);
+  updateMonitor('階段五 / 視網膜殘像', distortion);
+  showScreen('records');
+  renderRecordStep();
+}
+
+function renderRecordStep() {
+  if (recordStep >= recordsData.length) {
+    setFeedback('records-feedback', `五份紀錄已封存。色彩輪廓吻合 ${recordsCorrect} / ${recordsData.length}。`, 'amber');
+    actionLocked = true;
+    window.setTimeout(() => {
+      distortion = Math.max(distortion, 86);
+      updateMonitor('最後階段 / 替換者辨識', distortion);
+      triggerJumpScare(() => {
+        showScreen('fakes');
+        initFaces();
+      });
+    }, 1100);
+    return;
+  }
+
+  const record = recordsData[recordStep];
+  const normalOnLeft = Math.random() < .5;
+  recordNormalSide = normalOnLeft ? 'left' : 'right';
+  $('records-progress').textContent = `記憶封存 ${String(recordStep + 1).padStart(2, '0')} / ${recordsData.length}　｜　${record.label}`;
+  const container = $('records-container');
+  container.replaceChildren();
+  const samples = normalOnLeft
+    ? [{ image: record.normal, name: '樣本 A', side: 'left' }, { image: record.altered, name: '樣本 B', side: 'right' }]
+    : [{ image: record.altered, name: '樣本 A', side: 'left' }, { image: record.normal, name: '樣本 B', side: 'right' }];
+
+  samples.forEach((sample) => {
+    const frame = document.createElement('figure');
+    frame.className = `record-frame record-${sample.side}`;
+    const image = document.createElement('img');
+    image.src = sample.image;
+    image.alt = `${record.label}，${sample.name}`;
+    const caption = document.createElement('figcaption');
+    caption.textContent = `${sample.name} / 封存色彩截圖`;
+    frame.append(image, caption);
+    container.appendChild(frame);
   });
-  document.getElementById('fakes-feedback').textContent = '根據你剛才的視力檢測結果，點選所有異常／偽人的對象（可多選）';
+
+  const options = $('record-options');
+  options.replaceChildren();
+  ['left', 'right'].forEach((side, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = `樣本 ${index === 0 ? 'A' : 'B'} 保留了原始色彩`;
+    button.addEventListener('click', () => checkRecord(side));
+    options.appendChild(button);
+  });
+  actionLocked = false;
+  setFeedback('records-feedback', '兩份備份標示為相同時間。你記得的是哪一份？');
+  distortion = Math.max(distortion, 70 + recordStep * 3);
+  updateMonitor('階段五 / 視網膜殘像', distortion);
+}
+
+function checkRecord(side) {
+  if (actionLocked) return;
+  actionLocked = true;
+  lockOptions('record-options');
+  if (side === recordNormalSide) {
+    recordsCorrect += 1;
+    setFeedback('records-feedback', '色彩輪廓吻合。這個人／物件，還記得自己原本的樣子。', 'green');
+  } else {
+    addDistortion(6);
+    setFeedback('records-feedback', '記憶與備份不一致。檔案卻顯示你剛才選的才是原始版本。', 'red');
+    flicker(500);
+  }
+  window.setTimeout(() => {
+    recordStep += 1;
+    renderRecordStep();
+  }, 1050);
+}
+
+function triggerJumpScare(callback) {
+  if (!$('motion-toggle').checked) {
+    window.setTimeout(callback, 350);
+    return;
+  }
+  $('jumpscare').style.display = 'flex';
+  sting();
+  window.setTimeout(() => {
+    $('jumpscare').style.display = 'none';
+    callback();
+  }, 1050);
+}
+
+// The final classification is deliberately a single, irreversible decision.
+function initFaces() {
+  const container = $('faces-container');
+  container.replaceChildren();
+  selectedFaces.clear();
+  actionLocked = false;
+  shuffle(facesData).forEach((face) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'face-card';
+    card.setAttribute('aria-pressed', 'false');
+    const image = document.createElement('img');
+    image.src = face.img;
+    image.alt = face.label;
+    const label = document.createElement('span');
+    label.className = 'face-label';
+    label.textContent = face.label;
+    card.append(image, label);
+    card.addEventListener('click', () => toggleFace(face.id, card));
+    container.appendChild(card);
+  });
+  setFeedback('fakes-feedback', '點選所有已被替換的影像。你只能提交一次。');
 }
 
 function toggleFace(id, card) {
-  if (selectedFaces.has(id)) {
-    selectedFaces.delete(id);
-    card.classList.remove('selected');
-  } else {
-    selectedFaces.add(id);
-    card.classList.add('selected');
-  }
+  if (actionLocked) return;
+  if (selectedFaces.has(id)) selectedFaces.delete(id);
+  else selectedFaces.add(id);
+  const selected = selectedFaces.has(id);
+  card.classList.toggle('selected', selected);
+  card.setAttribute('aria-pressed', String(selected));
 }
 
-document.getElementById('btn-submit-fakes').onclick = () => {
-  const correctFakes = facesData.filter(f => f.isFake).map(f => f.id);
-  const isCorrect = correctFakes.every(id => selectedFaces.has(id)) && 
-                    selectedFaces.size === correctFakes.length;
-  const fb = document.getElementById('fakes-feedback');
-  if (isCorrect) {
-    fb.textContent = '正確辨識。你還是人類。';
-    fb.style.color = '#00ff00';
-    setTimeout(() => endGame(true, '檢測完成。你成功辨識出所有偽人，並通過了色彩測試。檢測中心的門為你打開了。'), 1000);
-  } else {
-    fb.textContent = '判斷錯誤。';
-    fb.style.color = '#ff3333';
-    setTimeout(() => endGame(false, '你選錯了。那些被你放行的偽人已經混入人群。而那些被你誤判的人類……'), 1200);
-  }
-};
+$('btn-submit-fakes').addEventListener('click', () => {
+  if (actionLocked) return;
+  actionLocked = true;
+  $('btn-submit-fakes').disabled = true;
+  $('faces-container').querySelectorAll('button').forEach((button) => { button.disabled = true; });
+  const correctFakes = facesData.filter((face) => face.isFake).map((face) => face.id);
+  const isCorrect = correctFakes.every((id) => selectedFaces.has(id)) && selectedFaces.size === correctFakes.length;
 
-// === Endings ===
-function endGame(success, message) {
+  if (isCorrect && (plateCorrect < 2 || recordsCorrect < 3)) {
+    setFeedback('fakes-feedback', '身份判讀相符，但視網膜記憶不一致。門鎖拒絕了你的工號。', 'red');
+    window.setTimeout(() => endGame(false, '你辨識出了名單上的替換者。可惜，檢測中心認為真正異常的是你。', 'reclassified'), 1500);
+  } else if (isCorrect && hasReportedAnomaly) {
+    setFeedback('fakes-feedback', '身份判讀相符。但回報紀錄上的操作員，正是你剛剛選出的那張臉。', 'amber');
+    window.setTimeout(() => endGame(true, '出口解鎖了。走廊盡頭的監視器仍顯示：你還坐在檢測室裡。', 'witness'), 1500);
+  } else if (isCorrect) {
+    setFeedback('fakes-feedback', '身份判讀相符。系統已替你簽署離場紀錄。', 'green');
+    window.setTimeout(() => endGame(true, '檢測通過。走廊空無一人，只有控制室的電話正在響。', 'passed'), 1300);
+  } else {
+    setFeedback('fakes-feedback', '判讀已封存。受試者名單中，你的名字被移到了另一欄。', 'red');
+    window.setTimeout(() => endGame(false, '那些被你放行的替換者已經離開。你指認的那幾個人，從來沒有離開過檢測室。', 'misidentified'), 1500);
+  }
+});
+
+function endGame(success, message, ending) {
   showScreen('ending');
-  const title = document.getElementById('ending-title');
-  const text = document.getElementById('ending-text');
-  if (success) {
-    title.textContent = '檢測通過';
-    title.style.color = '#00ff00';
-    text.innerHTML = `<p>${message}</p><p class="creepy">但請記住……下次再來的時候，你可能已經不是人類了。</p>`;
+  $('facility-header').hidden = true;
+  const title = $('ending-title');
+  const text = $('ending-text');
+  title.textContent = success ? (ending === 'witness' ? '回報已受理' : '檢測通過') : '檢測失敗';
+  title.style.color = success ? 'var(--green)' : 'var(--red)';
+  text.replaceChildren();
+  const result = document.createElement('p');
+  result.textContent = message;
+  const lastLine = document.createElement('p');
+  lastLine.className = 'creepy';
+  if (ending === 'witness') {
+    lastLine.textContent = sawEyes
+      ? '電話接通了。電話那頭的你，正在問：「你有看到我嗎？」'
+      : '回報紀錄多了一張簽名照。照片裡的操作員，和你一模一樣。';
+  } else if (ending === 'passed') {
+    lastLine.textContent = recordsCorrect === recordsData.length
+      ? '五份紀錄都與你記得的一樣。那為什麼門外的走廊，少了一面牆？'
+      : sawEyes
+      ? '你選出的眼睛，全都出現在離場紀錄的簽名欄裡。'
+      : '身後傳來一聲輕輕的敲門聲。你的離場紀錄顯示：尚未入場。';
+  } else if (ending === 'reclassified') {
+    lastLine.textContent = '監視器裡的你，比現在慢了半秒才眨眼。';
+  } else if (ending === 'rejected') {
+    lastLine.textContent = '黑暗中，有東西在笑。它記得你的答案。';
   } else {
-    title.textContent = '檢測失敗';
-    title.style.color = '#ff3333';
-    text.innerHTML = `<p>${message}</p><p class="creepy">黑暗中，有東西在笑。</p>`;
+    lastLine.textContent = '黑暗中，有東西在笑。它現在知道你的名字了。';
+  }
+  text.append(result, lastLine);
+  if (!success) {
     document.body.classList.add('scare');
-    setTimeout(() => document.body.classList.remove('scare'), 2000);
+    window.setTimeout(() => document.body.classList.remove('scare'), 1800);
   }
 }
 
-document.getElementById('btn-restart').onclick = () => {
-  document.body.classList.remove('scare', 'flicker');
+$('btn-restart').addEventListener('click', () => {
+  resetGame();
+  $('facility-header').hidden = true;
+  $('btn-report').disabled = false;
+  $('btn-ignore').disabled = false;
+  $('btn-submit-fakes').disabled = false;
+  stopAmbient();
   showScreen('title');
-};
+});
 
-// Initial
 showScreen('title');

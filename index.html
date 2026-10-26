@@ -8,21 +8,40 @@
 </head>
 <body>
   <div id="app">
+    <header id="facility-header" class="facility-header" hidden>
+      <div class="facility-meta">
+        <span class="facility-name">AVIT / 北區視覺檢測中心</span>
+        <span id="facility-state" class="facility-state">連線正常</span>
+      </div>
+      <div class="progress-meta">
+        <span id="stage-label">校準程序</span>
+        <span id="signal-label">影像同步 100%</span>
+      </div>
+      <div class="signal-track" aria-label="影像同步狀態">
+        <div id="signal-meter" class="signal-meter"></div>
+      </div>
+    </header>
+
     <!-- Title Screen -->
     <div id="screen-title" class="screen active">
       <h1 class="glitch" data-text="視覺偽人檢測">視覺偽人檢測</h1>
-      <p class="subtitle">偽人已經滲透了這個世界。<br>只有真正的人類能通過完整的視覺檢測。</p>
+      <p class="eyebrow">ALTERNATE VISUAL IDENTIFICATION TEST / 受試者入口</p>
+      <p class="subtitle">偽人已經學會模仿人的樣子。<br>你能相信的，只剩自己記得的顏色。</p>
       <button id="btn-start">開始檢測</button>
-      <p class="warning">※ 此為恐怖遊戲，請在黑暗中遊玩 ※</p>
+      <div class="accessibility-controls">
+        <label><input id="sound-toggle" type="checkbox"> 環境音</label>
+        <label><input id="motion-toggle" type="checkbox" checked> 閃爍效果</label>
+      </div>
+      <p class="warning">含突發影像與閃爍效果。可隨時關閉閃爍或環境音。</p>
     </div>
 
     <!-- Intro -->
     <div id="screen-intro" class="screen">
       <div class="narrative">
         <p>「歡迎來到色彩檢測中心。」</p>
-        <p>「根據最新報告，偽人的色彩感知存在缺陷。他們無法正確分辨特定色相。」</p>
-        <p>「你將接受多項測試：色盲板、色相敏感度、視力散光，以及視力度數比對。通過後，你將進入最終階段——辨識真正的人類。」</p>
-        <p class="creepy">失敗的話……他們就會知道你在這裡。</p>
+        <p>「根據最新報告，偽人無法穩定重現人類的色彩輪廓。我們稱它為視網膜殘像。」</p>
+        <p>「它不只出現在人身上。熟悉的氣球、小屋，甚至剛才看過的檢查表，都可能被改寫。請依序完成校色與視力檢測；測試期間，請勿回頭查看已封存的影像。」</p>
+        <p class="creepy">「如果看見畫面裡多出一個人，請不要告訴他你的名字。」</p>
       </div>
       <button id="btn-to-plates">接受檢測</button>
     </div>
@@ -39,18 +58,33 @@
     <!-- Hue Sensitivity Test -->
     <div id="screen-hue" class="screen">
       <h2>階段二：色相敏感度</h2>
-      <p>將色塊依正確順序排列（由左至右漸變）。</p>
+      <p>將色塊依正確順序排列（由左至右漸變）。有一格顏色不對，請重新檢查。</p>
       <div id="hue-container"></div>
       <button id="btn-check-hue">確認排列</button>
       <p id="hue-feedback" class="feedback"></p>
+    </div>
+
+    <!-- Unscripted report / operator interruption -->
+    <div id="screen-interlude" class="screen">
+      <p id="interlude-kicker" class="eyebrow">內線訊息 / 未驗證來源</p>
+      <h2 id="interlude-title">值班室呼叫</h2>
+      <div class="transmission" aria-live="polite">
+        <p id="interlude-message"></p>
+        <span id="interlude-signature" class="transmission-signature">— 夜班操作員</span>
+      </div>
+      <p id="interlude-question" class="muted"></p>
+      <div class="options interlude-options">
+        <button id="btn-report">回報異常</button>
+        <button id="btn-ignore">依流程繼續</button>
+      </div>
     </div>
 
     <!-- Vision / Astigmatism Test (Balloon & House) -->
     <div id="screen-vision" class="screen">
       <h2>階段三：視力與散光檢測</h2>
       <p id="vision-instruction">請看清圓形影像中的內容，並選擇你看到的。</p>
-      <div id="vision-image-container">
-        <img id="vision-img" src="" alt="vision test" style="width:320px;height:320px;object-fit:cover;border-radius:50%;border:4px solid #333;">
+      <div id="vision-image-container" class="vision-frame">
+        <img id="vision-img" src="" alt="視覺測試影像">
       </div>
       <div id="vision-options" class="options"></div>
       <p id="vision-feedback" class="feedback"></p>
@@ -60,20 +94,31 @@
     <div id="screen-acuity" class="screen">
       <h2>階段四：視力度數比對</h2>
       <p id="acuity-instruction">請指出最下面一排你能清楚辨認的符號方向。</p>
-      <img id="acuity-img" src="images/chart_normal.jpg" alt="eye chart" style="max-width:90%;max-height:480px;margin:15px auto;display:block;border:1px solid #333;">
+      <img id="acuity-img" src="images/chart_normal.jpg" alt="視力檢測圖">
       <div id="acuity-options" class="options"></div>
       <p id="acuity-feedback" class="feedback"></p>
     </div>
 
+    <!-- Retinal memory archive: compare ordinary and altered people/things. -->
+    <div id="screen-records" class="screen">
+      <p class="eyebrow">階段五 / 視網膜殘像檢查</p>
+      <h2>記憶影像核對</h2>
+      <p id="records-instruction">同一份檢測紀錄出現了兩個版本。選出「仍保有原始色彩訊號」的那一張。</p>
+      <p id="records-progress" class="record-progress"></p>
+      <div id="records-container" class="records-pair"></div>
+      <div id="record-options" class="options"></div>
+      <p id="records-feedback" class="feedback" aria-live="polite"></p>
+    </div>
+
     <!-- Jump Scare Overlay -->
-    <div id="jumpscare" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;justify-content:center;align-items:center;">
-      <img id="jumpscare-img" src="images/jumpscare.jpg" style="max-width:90%;max-height:90%;">
+    <div id="jumpscare" role="alertdialog" aria-label="突發影像" style="display:none">
+      <img id="jumpscare-img" src="images/jumpscare.jpg" alt="一張突然出現在畫面中的蒼白人臉">
     </div>
 
     <!-- Fake Identification -->
     <div id="screen-fakes" class="screen">
-      <h2>最終階段：分辨正常與異常</h2>
-      <p>你剛才通過了色盲、色相、視力與度數檢測。現在用這些視覺能力，辨識哪些是正常的人類／事物，哪些已經被替換。</p>
+      <h2>最終階段：辨識替換者</h2>
+      <p>下列影像來自今天的檢測紀錄。選出所有「被替換或篡改」的對象。你有一次提交機會。</p>
       <div id="faces-container"></div>
       <button id="btn-submit-fakes">提交判斷</button>
       <p id="fakes-feedback" class="feedback"></p>
