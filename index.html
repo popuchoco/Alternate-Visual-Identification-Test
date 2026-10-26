@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>虹膜色彩校準 | Colour &amp; Perception Lab</title>
-  <link rel="stylesheet" href="style.css?v=20261026b">
+  <link rel="stylesheet" href="style.css?v=20261026c">
 </head>
 <body>
   <div id="app">
@@ -104,7 +104,7 @@
     <div id="screen-records" class="screen">
       <p class="eyebrow">階段五 / 視網膜殘像檢查</p>
       <h2>記憶影像核對</h2>
-      <p id="records-instruction">同一份檢測紀錄出現了兩個版本。選出「仍保有原始色彩訊號」的那一張。</p>
+      <p id="records-instruction">這些是剛才視力檢測時封存的影像，請確認哪一張還保留原始色彩訊號。</p>
       <p id="records-progress" class="record-progress"></p>
       <div id="records-container" class="records-pair"></div>
       <div id="record-options" class="options"></div>
@@ -118,9 +118,11 @@
 
     <!-- Fake Identification -->
     <div id="screen-fakes" class="screen">
-      <h2>最終階段：辨識替換者</h2>
-      <p>下列影像來自今天的檢測紀錄。選出所有「被替換或篡改」的對象。你有一次提交機會。</p>
-      <div id="faces-container"></div>
+      <p class="eyebrow">最終階段 / 原始影像核對</p>
+      <h2>哪些記憶被換掉了？</h2>
+      <p>並排比對剛才看過的人與物件。每組選出仍保有最初記憶的一份；留意眼距、嘴角、窗格、屋頂與氣球吊籃。四組完成後只能提交一次。</p>
+      <p id="final-progress" class="record-progress" aria-live="polite"></p>
+      <div id="faces-container" class="final-comparisons"></div>
       <button id="btn-submit-fakes">提交判斷</button>
       <p id="fakes-feedback" class="feedback"></p>
     </div>
@@ -135,6 +137,6 @@
 
   <div id="attention-note" class="attention-note" role="status" aria-live="polite" hidden></div>
 
-  <script src="game.js?v=20261026b"></script>
+  <script src="game.js?v=20261026c"></script>
 </body>
 </html>

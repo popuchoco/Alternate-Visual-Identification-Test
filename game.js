@@ -11,12 +11,12 @@ const screens = {
 };
 
 const plates = [
-  { number: 74, options: [74, 21, 47, '看不到'], label: '明顯色差', figureHue: 20, fieldHue: 150, hueJitter: 5 },
-  { number: 8, options: [8, 3, 6, '看不到'], label: '基礎紅綠辨讀', figureHue: 17, fieldHue: 125, hueJitter: 6 },
-  { number: 42, options: [42, 24, 12, '看不到'], label: '中等色差', figureHue: 18, fieldHue: 96, hueJitter: 7 },
-  { number: 35, options: [35, 53, 3, '看不到'], label: '近似色辨讀', figureHue: 21, fieldHue: 70, hueJitter: 7 },
-  { number: 16, options: [16, 18, 76, '看不到'], label: '高度近似色', figureHue: 25, fieldHue: 49, hueJitter: 6 },
-  { number: 6, options: [6, 9, 5, '看不到'], label: '極近色辨讀', figureHue: 29, fieldHue: 40, hueJitter: 4 }
+  { number: 74, options: [74, 21, 47, '看不到'], label: '明顯色差', figureHue: 20, fieldHue: 150, hueJitter: 5, warp: 0 },
+  { number: 8, options: [8, 3, 6, '看不到'], label: '基礎紅綠辨讀', figureHue: 17, fieldHue: 125, hueJitter: 6, warp: 0 },
+  { number: 42, options: [42, 24, 12, '看不到'], label: '中等色差', figureHue: 18, fieldHue: 96, hueJitter: 7, warp: 0 },
+  { number: 35, options: [35, 53, 3, '看不到'], label: '近似色辨讀', figureHue: 21, fieldHue: 70, hueJitter: 7, warp: 0 },
+  { number: 16, options: [16, 18, 76, '看不到'], label: '高度近似色', figureHue: 25, fieldHue: 49, hueJitter: 6, warp: 1.2 },
+  { number: 6, options: [6, 9, 5, '看不到'], label: '極近色辨讀', figureHue: 29, fieldHue: 40, hueJitter: 4, warp: 2, faceEcho: true }
 ];
 
 const hueRounds = [
@@ -26,13 +26,11 @@ const hueRounds = [
   { name: '柑橘珊瑚', count: 10, start: 18, end: 51, saturation: 68, lightness: 62 }
 ];
 
-const facesData = [
-  { id: 0, isFake: false, img: 'images/person_normal_m.jpg', label: '受試者 A' },
-  { id: 1, isFake: true, img: 'images/person_fake_m.jpg', label: '受試者 B' },
-  { id: 2, isFake: false, img: 'images/person_normal_f.jpg', label: '受試者 C' },
-  { id: 3, isFake: true, img: 'images/person_fake_f.jpg', label: '受試者 D' },
-  { id: 4, isFake: false, img: 'images/balloon_normal_rect.jpg', label: '影像紀錄 E' },
-  { id: 5, isFake: true, img: 'images/balloon_horror_rect.jpg', label: '影像紀錄 F' }
+const finalComparisons = [
+  { id: 'person-a', label: '受試者 A / 臉部封存', clue: '比對眼距、嘴角與臉部輪廓。', normal: 'images/person_normal_m.jpg', altered: 'images/person_fake_m.jpg' },
+  { id: 'person-c', label: '受試者 C / 第二次拍攝', clue: '比對表情與輪廓是否和最初影像連續。', normal: 'images/person_normal_f.jpg', altered: 'images/person_fake_f.jpg' },
+  { id: 'balloon', label: '影像紀錄 14 / 熱氣球', clue: '回想色彩訊號、吊籃與繫索的位置。', normal: 'images/balloon_normal.jpg', altered: 'images/balloon_horror.jpg' },
+  { id: 'house', label: '影像紀錄 22 / 小屋', clue: '回想窗格、屋頂線條與原本的光線。', normal: 'images/house_normal.jpg', altered: 'images/house_horror.jpg' }
 ];
 
 const visionSteps = [
@@ -106,7 +104,7 @@ let acuityStep = 0;
 let recordStep = 0;
 let recordsCorrect = 0;
 let recordNormalSide = 'left';
-let selectedFaces = new Set();
+let finalSelections = Object.create(null);
 let distortion = 0;
 let hasReportedAnomaly = false;
 let sawEyes = false;
@@ -231,6 +229,10 @@ function revealAnomaly() {
   distortion = Math.max(distortion, 22);
   document.body.classList.add('unsettled');
   updateMonitor('封存紀錄校對', distortion);
+  showAttentionNote($('sound-toggle').checked
+    ? '提示：異常段落可能伴隨短促音效；可重新開始後關閉「環境音」。'
+    : '提示：目前已關閉「環境音」，短促異常音效也會一併停用。');
+  sting();
   showInterlude();
 }
 
@@ -282,7 +284,7 @@ function resetGame() {
   recordStep = 0;
   recordsCorrect = 0;
   recordNormalSide = 'left';
-  selectedFaces = new Set();
+  finalSelections = Object.create(null);
   distortion = 3;
   hasReportedAnomaly = false;
   sawEyes = false;
@@ -330,8 +332,8 @@ function drawPlate() {
   maskCanvas.width = size;
   maskCanvas.height = size;
   const maskCtx = maskCanvas.getContext('2d');
-  maskCtx.fillStyle = '#000';
-  maskCtx.fillRect(0, 0, size, size);
+  // Leave the mask transparent so the last plate's face echo can be clipped
+  // to the numeral rather than forming a separate full-field image.
   maskCtx.fillStyle = '#fff';
   maskCtx.font = 'bold 180px Arial';
   maskCtx.textAlign = 'center';
@@ -339,13 +341,43 @@ function drawPlate() {
   maskCtx.fillText(String(plate.number), size / 2, size / 2);
   const maskData = maskCtx.getImageData(0, 0, size, size).data;
 
+  let faceEchoData = null;
+  if (plate.faceEcho) {
+    const echoCanvas = document.createElement('canvas');
+    echoCanvas.width = size;
+    echoCanvas.height = size;
+    const echoCtx = echoCanvas.getContext('2d');
+    echoCtx.strokeStyle = '#fff';
+    echoCtx.fillStyle = '#fff';
+    echoCtx.lineWidth = 10;
+    echoCtx.lineCap = 'round';
+    echoCtx.beginPath();
+    echoCtx.ellipse(size / 2, size / 2 + 2, 58, 68, 0, 0, Math.PI * 2);
+    echoCtx.stroke();
+    echoCtx.beginPath();
+    echoCtx.ellipse(size / 2 - 22, size / 2 - 12, 5, 8, 0, 0, Math.PI * 2);
+    echoCtx.ellipse(size / 2 + 22, size / 2 - 12, 5, 8, 0, 0, Math.PI * 2);
+    echoCtx.fill();
+    echoCtx.beginPath();
+    echoCtx.moveTo(size / 2, size / 2 - 3);
+    echoCtx.lineTo(size / 2 - 5, size / 2 + 16);
+    echoCtx.moveTo(size / 2 - 18, size / 2 + 34);
+    echoCtx.quadraticCurveTo(size / 2, size / 2 + 43, size / 2 + 18, size / 2 + 32);
+    echoCtx.stroke();
+    echoCtx.globalCompositeOperation = 'destination-in';
+    echoCtx.drawImage(maskCanvas, 0, 0);
+    faceEchoData = echoCtx.getImageData(0, 0, size, size).data;
+  }
+
   for (let i = 0; i < 1250; i += 1) {
     const x = size / 2 + (Math.random() - .5) * (size - 30);
     const y = size / 2 + (Math.random() - .5) * (size - 30);
     if (Math.hypot(x - size / 2, y - size / 2) > size / 2 - 16) continue;
     const radius = 2.5 + Math.random() * 5;
     const pixel = (Math.floor(y) * size + Math.floor(x)) * 4;
-    const isFigure = maskData[pixel] > 128;
+    const shiftedY = Math.max(0, Math.min(size - 1, Math.floor(y + Math.sin((x + y) / 22) * (plate.warp || 0))));
+    const maskPixel = (shiftedY * size + Math.floor(x)) * 4;
+    const isFigure = maskData[maskPixel] > 128 || Boolean(faceEchoData && faceEchoData[pixel] > 128);
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     const hue = isFigure ? plate.figureHue : plate.fieldHue;
@@ -659,7 +691,7 @@ function renderRecordStep() {
     options.appendChild(button);
   });
   actionLocked = false;
-  setFeedback('records-feedback', '兩份備份標示為相同時間。你記得的是哪一份？');
+  setFeedback('records-feedback', '這些是剛才視力檢測時封存的影像，請確認哪一張還保留原始色彩訊號。');
   distortion = Math.max(distortion, 70 + recordStep * 3);
   updateMonitor('階段五 / 視網膜殘像', distortion);
 }
@@ -691,59 +723,90 @@ function triggerJumpScare(callback) {
   }, 2600);
 }
 
-// The final classification is deliberately a single, irreversible decision.
+// The final classification compares the earlier face/object records side by side.
 function initFaces() {
   const container = $('faces-container');
   container.replaceChildren();
-  selectedFaces.clear();
+  finalSelections = Object.create(null);
   actionLocked = false;
-  shuffle(facesData).forEach((face) => {
-    const card = document.createElement('button');
-    card.type = 'button';
-    card.className = 'face-card';
-    card.setAttribute('aria-pressed', 'false');
-    const image = document.createElement('img');
-    image.src = face.img;
-    image.alt = face.label;
-    const label = document.createElement('span');
-    label.className = 'face-label';
-    label.textContent = face.label;
-    card.append(image, label);
-    card.addEventListener('click', () => toggleFace(face.id, card));
-    container.appendChild(card);
+  shuffle(finalComparisons).forEach((comparison) => {
+    const pair = document.createElement('section');
+    pair.className = 'final-pair';
+    pair.setAttribute('aria-label', comparison.label);
+    const title = document.createElement('h3');
+    title.className = 'final-pair-title';
+    title.textContent = comparison.label;
+    const clue = document.createElement('p');
+    clue.className = 'final-pair-clue';
+    clue.textContent = comparison.clue;
+    const choices = document.createElement('div');
+    choices.className = 'final-pair-choices';
+    const versions = shuffle([
+      { image: comparison.normal, kind: 'original' },
+      { image: comparison.altered, kind: 'altered' }
+    ]);
+    versions.forEach((version, index) => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'final-sample';
+      card.setAttribute('aria-pressed', 'false');
+      card.setAttribute('aria-label', `${comparison.label}，版本 ${index === 0 ? 'A' : 'B'}`);
+      const image = document.createElement('img');
+      image.src = version.image;
+      image.alt = `${comparison.label}，比對版本 ${index === 0 ? 'A' : 'B'}`;
+      const caption = document.createElement('span');
+      caption.className = 'face-label';
+      caption.textContent = `比對版本 ${index === 0 ? 'A' : 'B'}`;
+      card.append(image, caption);
+      card.addEventListener('click', () => selectFinalVersion(comparison.id, version.kind, choices, card));
+      choices.appendChild(card);
+    });
+    pair.append(title, clue, choices);
+    container.appendChild(pair);
   });
-  setFeedback('fakes-feedback', '點選所有已被替換的影像。你只能提交一次。');
+  updateFinalProgress();
+  setFeedback('fakes-feedback', '每組選出仍保有最初記憶的一份。完成四組後提交，不能回頭修改。');
 }
 
-function toggleFace(id, card) {
+function updateFinalProgress() {
+  const completed = Object.keys(finalSelections).length;
+  $('final-progress').textContent = `原始影像核對 ${completed} / ${finalComparisons.length} 組`;
+}
+
+function selectFinalVersion(id, kind, choices, selectedCard) {
   if (actionLocked) return;
-  if (selectedFaces.has(id)) selectedFaces.delete(id);
-  else selectedFaces.add(id);
-  const selected = selectedFaces.has(id);
-  card.classList.toggle('selected', selected);
-  card.setAttribute('aria-pressed', String(selected));
+  finalSelections[id] = kind;
+  choices.querySelectorAll('button').forEach((card) => {
+    const isChosen = card === selectedCard;
+    card.classList.toggle('selected', isChosen);
+    card.setAttribute('aria-pressed', String(isChosen));
+  });
+  updateFinalProgress();
 }
 
 $('btn-submit-fakes').addEventListener('click', () => {
   if (actionLocked) return;
+  if (Object.keys(finalSelections).length !== finalComparisons.length) {
+    setFeedback('fakes-feedback', '尚有影像組未核對。每組都要留下你的判斷。', 'amber');
+    return;
+  }
   actionLocked = true;
   $('btn-submit-fakes').disabled = true;
   $('faces-container').querySelectorAll('button').forEach((button) => { button.disabled = true; });
-  const correctFakes = facesData.filter((face) => face.isFake).map((face) => face.id);
-  const isCorrect = correctFakes.every((id) => selectedFaces.has(id)) && selectedFaces.size === correctFakes.length;
+  const isCorrect = finalComparisons.every((comparison) => finalSelections[comparison.id] === 'original');
 
   if (isCorrect && (plateCorrect < 3 || hueCorrectRounds < 2 || recordsCorrect < 3)) {
-    setFeedback('fakes-feedback', '身份判讀相符，但前幾段校準紀錄互相矛盾。門鎖拒絕了你的工號。', 'red');
-    window.setTimeout(() => endGame(false, '你辨識出了名單上的替換者。可惜，檢測中心認為真正異常的是你。', 'reclassified'), 1500);
+    setFeedback('fakes-feedback', '原始版本判讀相符，但前幾段校準紀錄互相矛盾。門鎖拒絕了你的工號。', 'red');
+    window.setTimeout(() => endGame(false, '你找回了每組影像的原始版本。可惜，檢測中心認為真正異常的是你。', 'reclassified'), 1500);
   } else if (isCorrect && hasReportedAnomaly) {
-    setFeedback('fakes-feedback', '身份判讀相符。但回報紀錄上的操作員，正是你剛剛選出的那張臉。', 'amber');
+    setFeedback('fakes-feedback', '原始版本判讀相符。但回報紀錄上的操作員，正是其中一張臉。', 'amber');
     window.setTimeout(() => endGame(true, '出口解鎖了。走廊盡頭的監視器仍顯示：你還坐在檢測室裡。', 'witness'), 1500);
   } else if (isCorrect) {
-    setFeedback('fakes-feedback', '身份判讀相符。系統已替你簽署離場紀錄。', 'green');
+    setFeedback('fakes-feedback', '四組影像皆與最初留存一致。系統已替你簽署離場紀錄。', 'green');
     window.setTimeout(() => endGame(true, '檢測通過。走廊空無一人，只有控制室的電話正在響。', 'passed'), 1300);
   } else {
-    setFeedback('fakes-feedback', '判讀已封存。受試者名單中，你的名字被移到了另一欄。', 'red');
-    window.setTimeout(() => endGame(false, '那些被你放行的替換者已經離開。你指認的那幾個人，從來沒有離開過檢測室。', 'misidentified'), 1500);
+    setFeedback('fakes-feedback', '判讀已封存。至少一個原始版本被你留在了錯誤的一側。', 'red');
+    window.setTimeout(() => endGame(false, '有些影像版本被放行了。受試者名單中，你的名字也被移到了另一欄。', 'misidentified'), 1500);
   }
 });
 
