@@ -79,14 +79,14 @@ const acuitySteps = [
     options: ['向右', '向左', '向上', '向下']
   },
   {
-    size: 42, count: 5, intruders: ['face'], mode: 'direction',
-    instruction: '視標又小了一級。看框線內的 E；旁邊那張臉不屬於這份測驗。',
+    size: 42, count: 5, intruders: ['chart_horror.jpg'], mode: 'direction',
+    instruction: '視標又小了一級。只回答框線內 E 的開口方向。下方封存圖表裡的眼睛，不屬於測驗。',
     options: ['向右', '向左', '向上', '向下']
   },
   {
-    size: 31, count: 7, intruders: ['eyes', 'face', 'eyes'], mode: 'observation',
-    instruction: '最後一排。視力表裡混進了什麼？',
-    options: ['只是 E 圖表', '很多眼睛', '我不想看了', '它們在笑'], correct: '很多眼睛'
+    size: 31, count: 7, intruders: ['chart_horror.jpg', 'chart_extreme.jpg'], mode: 'direction',
+    instruction: '最後一排。回答框線內 E 的開口方向。忽略視力表裡那些不該出現的臉。',
+    options: ['向右', '向左', '向上', '向下']
   }
 ];
 
@@ -621,12 +621,15 @@ function showAcuityStep() {
     return;
   }
   const step = acuitySteps[acuityStep];
+  if (step.intruders.includes('chart_horror.jpg')) sawEyes = true;
   $('acuity-instruction').textContent = step.instruction;
   const board = $('acuity-board');
   board.replaceChildren();
   const symbols = Array.from({ length: step.count }, () => ({ type: 'E' }));
   const intruderSlots = shuffle(symbols.map((_, index) => index)).slice(0, step.intruders.length);
-  intruderSlots.forEach((slot, index) => { symbols[slot] = { type: step.intruders[index] }; });
+  intruderSlots.forEach((slot, index) => {
+    symbols[slot] = { type: 'archive', image: step.intruders[index] };
+  });
   const targetIndex = step.mode === 'direction'
     ? Math.floor(Math.random() * symbols.filter((symbol) => symbol.type === 'E').length)
     : -1;
@@ -655,20 +658,13 @@ function showAcuityStep() {
         glyph.setAttribute('aria-label', 'E 視標');
       }
       seenTargets += 1;
-    } else if (symbol.type === 'face') {
-      const face = document.createElement('img');
-      face.className = 'acuity-face';
-      face.src = Math.random() < .5 ? 'images/person_fake_m.jpg' : 'images/person_fake_f.jpg';
-      face.alt = '混入視力表的人臉';
-      glyph.setAttribute('aria-label', '人臉樣的異常視標');
-      glyph.appendChild(face);
-    } else if (symbol.type === 'eyes') {
-      const eyes = document.createElement('span');
-      eyes.className = 'acuity-eyes';
-      eyes.innerHTML = '<svg viewBox="0 0 96 40" aria-hidden="true"><path d="M2 20C13 3 33 3 46 20 33 37 13 37 2 20Zm48 0C61 3 81 3 94 20 81 37 61 37 50 20Z" fill="#f2bfd0" stroke="#934f7b" stroke-width="3"/><circle cx="24" cy="20" r="8" fill="#286f69"/><circle cx="72" cy="20" r="8" fill="#286f69"/><circle cx="24" cy="20" r="3" fill="#f5d88f"/><circle cx="72" cy="20" r="3" fill="#f5d88f"/><circle cx="21" cy="17" r="1.8" fill="#fff"/><circle cx="69" cy="17" r="1.8" fill="#fff"/></svg>';
-      eyes.setAttribute('aria-label', '一雙眼睛');
-      glyph.setAttribute('aria-label', '眼睛樣的異常視標');
-      glyph.appendChild(eyes);
+    } else if (symbol.type === 'archive') {
+      const archive = document.createElement('img');
+      archive.className = 'acuity-archive';
+      archive.src = `images/${symbol.image}`;
+      archive.alt = '封存視力表中的異常影像';
+      glyph.setAttribute('aria-label', '封存圖表影像侵入視標列');
+      glyph.appendChild(archive);
     }
     board.appendChild(glyph);
   });
@@ -691,7 +687,6 @@ function checkAcuity(choice, step) {
   lockOptions('acuity-options');
   const expected = step.mode === 'direction' ? acuityTargetAnswer : step.correct;
   const correct = choice === expected;
-  if (step.mode === 'observation') sawEyes = choice === '很多眼睛';
   if (correct) {
     setFeedback('acuity-feedback', acuityStep < 2 ? '判讀相符。' : '記錄成功。請不要看向螢幕外。', acuityStep < 2 ? 'green' : 'amber');
   } else {
