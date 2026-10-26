@@ -447,33 +447,55 @@ function checkPlate(choice) {
   if (actionLocked) return;
   actionLocked = true;
   plateAnswers[currentPlate] = choice;
-  if (plates[currentPlate].faceEcho) noticedFaceEcho = choice === '看不到';
   lockOptions('plate-options');
-  if (plates[currentPlate].faceEcho && noticedFaceEcho) {
-    setFeedback('plate-feedback', '答案已記錄。邊緣的殘影也已存檔。', 'amber');
-  } else if (choice === plates[currentPlate].number) {
+  if (choice === plates[currentPlate].number) {
     plateCorrect += 1;
-    setFeedback('plate-feedback', '答案已記錄。請繼續下一張。', 'green');
   } else {
     addDistortion(7);
-    setFeedback('plate-feedback', '答案已記錄。請繼續下一張。');
   }
-  window.setTimeout(() => {
-    currentPlate += 1;
-    actionLocked = false;
-    if (currentPlate < plates.length) {
-      drawPlate();
-      return;
-    }
-    if (plateCorrect < 3) {
-      addDistortion(16);
-    }
-    distortion = Math.max(distortion, plateCorrect < 3 ? 28 : 16);
-    if (plateCorrect < 3) setFeedback('plate-feedback', '色點辨讀已完成。結果已記錄。');
-    updateMonitor('階段二 / 色相排序', distortion);
-    showScreen('hue');
-    initHue();
-  }, 1050);
+
+  if (plates[currentPlate].faceEcho) {
+    setFeedback('plate-feedback', '答案已記錄。要把畫面邊緣的感覺補進備註嗎？', 'amber');
+    const noteOptions = $('plate-options');
+    noteOptions.replaceChildren();
+    [
+      { label: '留下備註', noticed: true },
+      { label: '略過', noticed: false }
+    ].forEach(({ label, noticed }) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.addEventListener('click', () => {
+        noticedFaceEcho = noticed;
+        lockOptions('plate-options');
+        setFeedback('plate-feedback', noticed ? '備註已封存。' : '未新增備註。', noticed ? 'amber' : 'green');
+        window.setTimeout(advancePlate, 900);
+      });
+      noteOptions.appendChild(button);
+    });
+    focusFirstControl('plate-options');
+    return;
+  }
+
+  setFeedback('plate-feedback', '答案已記錄。請繼續下一張。', choice === plates[currentPlate].number ? 'green' : '');
+  window.setTimeout(advancePlate, 1050);
+}
+
+function advancePlate() {
+  currentPlate += 1;
+  actionLocked = false;
+  if (currentPlate < plates.length) {
+    drawPlate();
+    return;
+  }
+  if (plateCorrect < 3) {
+    addDistortion(16);
+  }
+  distortion = Math.max(distortion, plateCorrect < 3 ? 28 : 16);
+  if (plateCorrect < 3) setFeedback('plate-feedback', '色點辨讀已完成。結果已記錄。');
+  updateMonitor('階段二 / 色相排序', distortion);
+  showScreen('hue');
+  initHue();
 }
 
 // Hue sorting starts as a calm four-part calibration; the story changes only after it.
@@ -914,7 +936,7 @@ function resolveFinalOutcome(isCorrect) {
       return {
         success: false,
         ending: 'reportedMisidentified',
-        message: `你回報了異常${noticedFaceEcho ? '，也在最後色板留下「看不到」' : ''}；封存吻合 ${recordScore}，但最終仍將一名替換者放進原始名單。`
+        message: `你回報了異常${noticedFaceEcho ? '，也替最後色板邊緣的異樣留下備註' : ''}；封存吻合 ${recordScore}，但最終仍將一名替換者放進原始名單。`
       };
     }
     if (hasReportedAnomaly) {
@@ -924,7 +946,7 @@ function resolveFinalOutcome(isCorrect) {
       return {
         success: false,
         ending: 'silentMisidentified',
-        message: `你${noticedFaceEcho ? '在最後色板留下「看不到」' : '看見視標列裡的眼睛'}，卻沒有回報；封存吻合 ${recordScore}，仍有替換者離場。`
+        message: `你${noticedFaceEcho ? '替最後色板邊緣的異樣留下備註' : '看見視標列裡的眼睛'}，卻沒有回報；封存吻合 ${recordScore}，仍有替換者離場。`
       };
     }
     return { success: false, ending: 'misidentified', message: `判讀已封存。你沒有回報異常，且只有 ${recordScore} 份影像吻合。至少一個替換者已離場。` };
@@ -932,7 +954,7 @@ function resolveFinalOutcome(isCorrect) {
 
   if (!calibrationPassed) {
     const reportNote = hasReportedAnomaly ? '異常回報已登記；' : '';
-    const echoNote = noticedFaceEcho ? '最後色板的「看不到」已被存檔；' : '';
+    const echoNote = noticedFaceEcho ? '最後色板的觀察備註已被存檔；' : '';
     return {
       success: false,
       ending: 'reclassified',
@@ -946,7 +968,7 @@ function resolveFinalOutcome(isCorrect) {
       return {
         success: true,
         ending: 'witness',
-        message: `你回報了異常，也在最後色板留下「看不到」；封存吻合 ${recordScore}。${chartNote}出口解鎖了，但監視器仍顯示你坐在檢測室裡。`
+        message: `你回報了異常，也替最後色板邊緣的異樣留下備註；封存吻合 ${recordScore}。${chartNote}出口解鎖了，但監視器仍顯示你坐在檢測室裡。`
       };
     }
     return {
@@ -961,13 +983,13 @@ function resolveFinalOutcome(isCorrect) {
       return {
         success: true,
         ending: 'silentWitness',
-        message: `你在最後色板留下「看不到」，並找回 ${recordScore} 份封存，卻沒有回報異常。`
+        message: `你替最後色板邊緣的異樣留下備註，並找回 ${recordScore} 份封存，卻沒有回報異常。`
       };
     }
     return {
       success: true,
       ending: 'silentEcho',
-      message: `你在最後色板留下「看不到」，但封存只有 ${recordScore} 與記憶吻合。你看見了殘影，卻沒有讓任何人知道。`
+      message: `你替最後色板邊緣的異樣留下備註，但封存只有 ${recordScore} 與記憶吻合。你看見了殘影，卻沒有讓任何人知道。`
     };
   }
 
@@ -1017,11 +1039,11 @@ function endGame(success, message, ending) {
       : '回報紀錄多了一張簽名照。照片裡的操作員，和你一模一樣。';
   } else if (ending === 'reportConflict') {
     lastLine.textContent = noticedFaceEcho
-      ? '最後色板的「看不到」被改成了「正常」。回報時間戳記，早了十七分鐘。'
+      ? '最後色板的觀察備註被改成了「正常」。回報時間戳記，早了十七分鐘。'
       : '回報的時間戳記比現在早了十七分鐘。簽名欄裡的名字，卻是下一位受試者。';
   } else if (ending === 'silentWitness') {
     lastLine.textContent = noticedFaceEcho
-      ? '系統把最後一張色板的「看不到」改成「6」。電話那頭有人輕聲說：你明明看見我了。'
+      ? '系統把最後一張色板的觀察備註改成「無異常」。電話那頭有人輕聲說：你明明看見我了。'
       : '系統把「未回報」自動改成「無異常」。電話那頭有人輕聲說：你明明看見我了。';
   } else if (ending === 'reportedMisidentified') {
     lastLine.textContent = noticedFaceEcho
@@ -1029,13 +1051,13 @@ function endGame(success, message, ending) {
       : '你的回報裡寫著「異常視標」。離場名單裡，那個異常被標成了原始樣本。';
   } else if (ending === 'silentMisidentified') {
     lastLine.textContent = noticedFaceEcho
-      ? '你在最後色板留下「看不到」，監視器裡的人卻替你按下了「我看見了」。'
+      ? '你替最後色板邊緣的異樣留下備註，監視器裡的人卻替你按下了「我看見了」。'
       : '你沒有留下回報。監視器裡的人卻替你按下了「我看見了」。';
   } else if (ending === 'silentEcho') {
-    lastLine.textContent = '你的「看不到」被系統重新標成「正常辨識」。走廊裡，誰也沒有承認看見那張臉。';
+    lastLine.textContent = '你的觀察備註被系統重新標成「正常辨識」。走廊裡，誰也沒有承認看見那張臉。';
   } else if (ending === 'passed') {
     lastLine.textContent = noticedFaceEcho
-      ? '最後色板的「看不到」被改成「6」。門外傳來敲門聲，像有人在替你作答。'
+      ? '最後色板的觀察備註被刪成空白。門外傳來敲門聲，像有人在替你作答。'
       : recordsCorrect === recordsData.length
       ? '五份紀錄都與你記得的一樣。那為什麼門外的走廊，少了一面牆？'
       : noticedChartAnomaly
