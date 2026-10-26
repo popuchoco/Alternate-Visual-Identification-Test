@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>色彩偽人檢測 | Hue of the Fake</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Title Screen -->
+    <div id="screen-title" class="screen active">
+      <h1 class="glitch" data-text="色彩偽人檢測">色彩偽人檢測</h1>
+      <p class="subtitle">偽人已經滲透了這個世界。<br>只有真正的人類能通過色彩檢測。</p>
+      <button id="btn-start">開始檢測</button>
+      <p class="warning">※ 此為恐怖遊戲，請在黑暗中遊玩 ※</p>
+    </div>
+
+    <!-- Intro -->
+    <div id="screen-intro" class="screen">
+      <div class="narrative">
+        <p>「歡迎來到色彩檢測中心。」</p>
+        <p>「根據最新報告，偽人的色彩感知存在缺陷。他們無法正確分辨特定色相。」</p>
+        <p>「你將接受兩項測試：色盲板與色相敏感度。通過後，你將進入最終階段——辨識真正的人類。」</p>
+        <p class="creepy">失敗的話……他們就會知道你在這裡。</p>
+      </div>
+      <button id="btn-to-plates">接受檢測</button>
+    </div>
+
+    <!-- Color Blindness Plates -->
+    <div id="screen-plates" class="screen">
+      <h2>階段一：色盲檢測板</h2>
+      <p>你看到的數字是什麼？</p>
+      <canvas id="plate-canvas" width="400" height="400"></canvas>
+      <div id="plate-options" class="options"></div>
+      <p id="plate-feedback" class="feedback"></p>
+    </div>
+
+    <!-- Hue Sensitivity Test -->
+    <div id="screen-hue" class="screen">
+      <h2>階段二：色相敏感度</h2>
+      <p>將色塊依正確順序排列（由左至右漸變）。</p>
+      <div id="hue-container"></div>
+      <button id="btn-check-hue">確認排列</button>
+      <p id="hue-feedback" class="feedback"></p>
+    </div>
+
+    <!-- Fake Identification -->
+    <div id="screen-fakes" class="screen">
+      <h2>最終階段：分辨偽人</h2>
+      <p>根據你剛才的色彩感知，找出哪些是偽人。偽人的皮膚、眼睛會有細微的色相異常。</p>
+      <div id="faces-container"></div>
+      <button id="btn-submit-fakes">提交判斷</button>
+      <p id="fakes-feedback" class="feedback"></p>
+    </div>
+
+    <!-- Endings -->
+    <div id="screen-ending" class="screen">
+      <h2 id="ending-title"></h2>
+      <div id="ending-text" class="narrative"></div>
+      <button id="btn-restart">重新檢測</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
