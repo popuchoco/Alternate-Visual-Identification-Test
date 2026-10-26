@@ -25,17 +25,10 @@
 
 靜態檔案位於 repository 根目錄。在 **Settings → Pages** 設定由 `main` 分支的根目錄部署；確認 Pages 已啟用後，推送更新會自動發佈。
 
-## 設計參考與授權處理
+## 設計參考
 
-視覺節奏參考了 [EnChroma 色覺測試](https://enchroma.com/pages/test) 與 [Arealme 色相測試](https://www.arealme.com/color-hue-test/zh/) 的「先作答、再逐步增加辨識難度」感受。恐怖遊戲參考僅用於理解氣氛、觸發節奏與規則線索的設計方向：
+色點辨讀與色相排序的循序體驗，參考了 [EnChroma 色覺測試](https://enchroma.com/pages/test) 與 [Arealme 色相測試](https://www.arealme.com/color-hue-test/zh/)。遊戲自行改寫為短篇敘事流程，並非醫療或臨床測驗。
 
-- [Midnight Visitors](https://github.com/KishorePaul0205/Midnight-Visitors---A-Short-Horror-Game-Built-in-Unreal-Engine)
-- [Blocky Horror (Three.js)](https://github.com/zhulinghao/Blocky_Horror_Three.js-horror-game)
-- [Godot Horror Demo 2D](https://github.com/NuclearPhoenixx/Godot-Horror-Demo-2D)
-- [Unity RuleNonsense](https://github.com/Vae078/Unity_RuleNonsense)
-- [Duo-Cai-You-Xi](https://github.com/EmbraceAGI/Duo-Cai-You-Xi)
-- [Duo-Cai-You-Xi 的規則怪談解謎腳本](https://github.com/EmbraceAGI/Duo-Cai-You-Xi/blob/main/%E3%80%90DallE-3%E7%89%88%E6%9C%AC%E3%80%91%E8%A7%84%E5%88%99%E6%80%AA%E8%B0%88%E8%A7%A3%E8%B0%9C%E6%B8%B8%E6%88%8F.txt)
-- [Rulekeeper](https://github.com/dongsheng123132/rulekeeper)
-- [Stranger Rules Web](https://github.com/wjt2018/stranger-rules-web)
+## 授權
 
-本次改版沒有複製上述作品的程式碼、圖像、音訊或劇本文字；只將一般性的節奏與互動概念轉寫成原創的視力測驗敘事。這份專案原本沒有附 `LICENSE`；本次不替既有專案或圖片擅自指定新授權，也不把參考作品的授權套用到本專案。若要對外授權整個 repository，仍需先確認原始碼與現有圖片的權利人。
+本專案的原始碼、文件與既有圖片資產依 Apache License 2.0 授權。版權聲明：Copyright 2026 popuchoco。完整條款見 [`LICENSE`](LICENSE)；Apache-2.0 授權文字亦可於 [Apache Software Foundation](https://www.apache.org/licenses/LICENSE-2.0) 查閱。
