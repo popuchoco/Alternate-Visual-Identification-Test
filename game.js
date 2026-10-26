@@ -33,7 +33,7 @@ const hueRounds = [
 
 const finalComparisons = [
   { id: 'person-a', label: '受試者 A / 臉部封存', clue: '兩張幾乎一樣。別只看明暗，留意眼睛與嘴角。', normal: 'images/person_normal_m.jpg', altered: 'images/person_fake_m.jpg', subtleAlteration: true },
-  { id: 'person-c', label: '受試者 C / 第二次拍攝', clue: '比對表情與輪廓是否和最初影像連續。', normal: 'images/person_normal_f.jpg', altered: 'images/person_fake_f.jpg' },
+  { id: 'person-c', label: '受試者 C / 第二次拍攝', clue: '第二次影像幾乎一樣。留意眼睛高度與嘴角弧度。', normal: 'images/person_normal_f.jpg', altered: 'images/person_fake_f.jpg', subtleAlteration: true },
   { id: 'balloon', label: '影像紀錄 14 / 熱氣球', clue: '回想色彩訊號、吊籃與繫索的位置。', normal: 'images/balloon_normal.jpg', altered: 'images/balloon_horror.jpg' },
   { id: 'house', label: '影像紀錄 22 / 小屋', clue: '回想窗格、屋頂線條與原本的光線。', normal: 'images/house_normal.jpg', altered: 'images/house_horror.jpg' }
 ];
@@ -129,6 +129,7 @@ let finalSelections = Object.create(null);
 let distortion = 0;
 let hasReportedAnomaly = false;
 let noticedChartAnomaly = false;
+let noticedFaceEcho = false;
 let actionLocked = false;
 let anomalyRevealed = false;
 let hasSwitchedAway = false;
@@ -323,6 +324,7 @@ function resetGame() {
   distortion = 3;
   hasReportedAnomaly = false;
   noticedChartAnomaly = false;
+  noticedFaceEcho = false;
   actionLocked = false;
   anomalyRevealed = false;
   hasSwitchedAway = false;
@@ -445,8 +447,11 @@ function checkPlate(choice) {
   if (actionLocked) return;
   actionLocked = true;
   plateAnswers[currentPlate] = choice;
+  if (plates[currentPlate].faceEcho) noticedFaceEcho = choice === '看不到';
   lockOptions('plate-options');
-  if (choice === plates[currentPlate].number) {
+  if (plates[currentPlate].faceEcho && noticedFaceEcho) {
+    setFeedback('plate-feedback', '答案已記錄。邊緣的殘影也已存檔。', 'amber');
+  } else if (choice === plates[currentPlate].number) {
     plateCorrect += 1;
     setFeedback('plate-feedback', '答案已記錄。請繼續下一張。', 'green');
   } else {
@@ -900,6 +905,78 @@ function selectFinalVersion(id, kind, choices, selectedCard) {
   updateFinalProgress();
 }
 
+function resolveFinalOutcome(isCorrect) {
+  const calibrationPassed = plateCorrect >= 3 && hueCorrectRounds >= 2 && recordsCorrect >= 3;
+  const recordScore = `${recordsCorrect} / ${recordsData.length}`;
+
+  if (!isCorrect) {
+    if (hasReportedAnomaly && (noticedFaceEcho || (noticedChartAnomaly && recordsCorrect >= 3))) {
+      return {
+        success: false,
+        ending: 'reportedMisidentified',
+        message: `你回報了異常${noticedFaceEcho ? '，也在最後色板留下「看不到」' : ''}；封存吻合 ${recordScore}，但最終仍將一名替換者放進原始名單。`
+      };
+    }
+    if (hasReportedAnomaly) {
+      return { success: false, ending: 'rejected', message: `回報已送出，但封存只有 ${recordScore} 份與記憶吻合。最終名單無法核准。` };
+    }
+    if (noticedFaceEcho || (noticedChartAnomaly && recordsCorrect >= 4)) {
+      return {
+        success: false,
+        ending: 'silentMisidentified',
+        message: `你${noticedFaceEcho ? '在最後色板留下「看不到」' : '看見視標列裡的眼睛'}，卻沒有回報；封存吻合 ${recordScore}，仍有替換者離場。`
+      };
+    }
+    return { success: false, ending: 'misidentified', message: `判讀已封存。你沒有回報異常，且只有 ${recordScore} 份影像吻合。至少一個替換者已離場。` };
+  }
+
+  if (!calibrationPassed) {
+    const reportNote = hasReportedAnomaly ? '異常回報已登記；' : '';
+    const echoNote = noticedFaceEcho ? '最後色板的「看不到」已被存檔；' : '';
+    return {
+      success: false,
+      ending: 'reclassified',
+      message: `${reportNote}${echoNote}你找回四組原始影像，但校準紀錄互相矛盾（色點 ${plateCorrect}/6、色相 ${hueCorrectRounds}/4、封存 ${recordsScore}）。門鎖拒絕了你的工號。`
+    };
+  }
+
+  if (hasReportedAnomaly) {
+    if (noticedFaceEcho && recordsCorrect >= 4) {
+      const chartNote = noticedChartAnomaly ? '視標列裡的眼睛也與封存對上。' : '第五份視標列仍安靜地留在檔案裡。';
+      return {
+        success: true,
+        ending: 'witness',
+        message: `你回報了異常，也在最後色板留下「看不到」；封存吻合 ${recordScore}。${chartNote}出口解鎖了，但監視器仍顯示你坐在檢測室裡。`
+      };
+    }
+    return {
+      success: true,
+      ending: 'reportConflict',
+      message: `你的異常回報已簽收，封存吻合 ${recordScore}；${noticedFaceEcho ? '最後色板的殘影也已登記' : '最後色板沒有留下殘影備註'}。系統仍無法確認你看見的是什麼。`
+    };
+  }
+
+  if (noticedFaceEcho) {
+    if (recordsCorrect >= 4) {
+      return {
+        success: true,
+        ending: 'silentWitness',
+        message: `你在最後色板留下「看不到」，並找回 ${recordScore} 份封存，卻沒有回報異常。`
+      };
+    }
+    return {
+      success: true,
+      ending: 'silentEcho',
+      message: `你在最後色板留下「看不到」，但封存只有 ${recordScore} 與記憶吻合。你看見了殘影，卻沒有讓任何人知道。`
+    };
+  }
+
+  if (noticedChartAnomaly && recordsCorrect === recordsData.length) {
+    return { success: true, ending: 'silentWitness', message: '五份影像都與你記得的一樣。你沒有回報；系統仍替你留下了目擊紀錄。' };
+  }
+  return { success: true, ending: 'passed', message: '四組影像皆與最初留存一致。系統已替你簽署離場紀錄。' };
+}
+
 $('btn-submit-fakes').addEventListener('click', () => {
   if (actionLocked) return;
   if (Object.keys(finalSelections).length !== finalComparisons.length) {
@@ -910,28 +987,7 @@ $('btn-submit-fakes').addEventListener('click', () => {
   $('btn-submit-fakes').disabled = true;
   $('faces-container').querySelectorAll('button').forEach((button) => { button.disabled = true; });
   const isCorrect = finalComparisons.every((comparison) => finalSelections[comparison.id] === 'original');
-  const calibrationPassed = plateCorrect >= 3 && hueCorrectRounds >= 2 && recordsCorrect >= 3;
-
-  let outcome;
-  if (!isCorrect && hasReportedAnomaly && noticedChartAnomaly && recordsCorrect >= 3) {
-    outcome = { success: false, ending: 'reportedMisidentified', message: '你認出第五份圖表裡的異常，也寫下了回報；但最終仍替一名替換者簽了離場。' };
-  } else if (!isCorrect && hasReportedAnomaly) {
-    outcome = { success: false, ending: 'rejected', message: `回報已送出，但只有 ${recordsCorrect} / ${recordsData.length} 份封存與你的記憶吻合。最終名單無法核准。` };
-  } else if (!isCorrect && noticedChartAnomaly && recordsCorrect >= 4) {
-    outcome = { success: false, ending: 'silentMisidentified', message: '你看見了圖表裡的眼睛，卻沒有回報；至少一個替換者仍被你放進原始名單。' };
-  } else if (!isCorrect) {
-    outcome = { success: false, ending: 'misidentified', message: `判讀已封存。你沒有回報異常，且只有 ${recordsCorrect} / ${recordsData.length} 份影像吻合。至少一個替換者已離場。` };
-  } else if (!calibrationPassed) {
-    outcome = { success: false, ending: 'reclassified', message: `你找回四組原始影像，但校準紀錄互相矛盾（色點 ${plateCorrect}/6、色相 ${hueCorrectRounds}/4、封存 ${recordsCorrect}/5）。門鎖拒絕了你的工號。` };
-  } else if (hasReportedAnomaly && noticedChartAnomaly && recordsCorrect >= 4) {
-    outcome = { success: true, ending: 'witness', message: '你回報了異常，也在第五份圖表裡認出了不該存在的視標。出口解鎖了；走廊盡頭的監視器仍顯示你坐在檢測室裡。' };
-  } else if (hasReportedAnomaly) {
-    outcome = { success: true, ending: 'reportConflict', message: '原始影像判讀相符。你的回報也已簽收，但封存紀錄沒有留下你看見眼睛的證詞。' };
-  } else if (noticedChartAnomaly && recordsCorrect === recordsData.length) {
-    outcome = { success: true, ending: 'silentWitness', message: '五份影像都與你記得的一樣。你沒有回報；系統仍替你留下了目擊紀錄。' };
-  } else {
-    outcome = { success: true, ending: 'passed', message: '四組影像皆與最初留存一致。系統已替你簽署離場紀錄。' };
-  }
+  const outcome = resolveFinalOutcome(isCorrect);
 
   setFeedback('fakes-feedback', outcome.message, outcome.success ? 'amber' : 'red');
   window.setTimeout(() => endGame(outcome.success, outcome.message, outcome.ending), outcome.ending === 'passed' ? 1300 : 1500);
@@ -945,7 +1001,7 @@ function endGame(success, message, ending) {
   const text = $('ending-text');
   const endingTitles = {
     witness: '回報已受理', reportConflict: '回報待覆核', silentWitness: '未回報的證詞',
-    reportedMisidentified: '回報遭到退件', silentMisidentified: '未回報紀錄',
+    reportedMisidentified: '回報遭到退件', silentMisidentified: '未回報紀錄', silentEcho: '未存檔的殘影',
     reclassified: '受試者重新分類', rejected: '回報遭到退件'
   };
   title.textContent = endingTitles[ending] || (success ? '檢測通過' : '檢測失敗');
@@ -956,19 +1012,31 @@ function endGame(success, message, ending) {
   const lastLine = document.createElement('p');
   lastLine.className = 'creepy';
   if (ending === 'witness') {
-    lastLine.textContent = noticedChartAnomaly
-      ? '電話接通了。電話那頭的你，正在問：「你有看到我嗎？」'
+    lastLine.textContent = noticedFaceEcho
+      ? '電話接通了。電話那頭的你，正在問：「你也在色板上看見我了嗎？」'
       : '回報紀錄多了一張簽名照。照片裡的操作員，和你一模一樣。';
   } else if (ending === 'reportConflict') {
-    lastLine.textContent = '回報的時間戳記比現在早了十七分鐘。簽名欄裡的名字，卻是下一位受試者。';
+    lastLine.textContent = noticedFaceEcho
+      ? '最後色板的「看不到」被改成了「正常」。回報時間戳記，早了十七分鐘。'
+      : '回報的時間戳記比現在早了十七分鐘。簽名欄裡的名字，卻是下一位受試者。';
   } else if (ending === 'silentWitness') {
-    lastLine.textContent = '系統把「未回報」自動改成「無異常」。電話那頭有人輕聲說：你明明看見我了。';
+    lastLine.textContent = noticedFaceEcho
+      ? '系統把最後一張色板的「看不到」改成「6」。電話那頭有人輕聲說：你明明看見我了。'
+      : '系統把「未回報」自動改成「無異常」。電話那頭有人輕聲說：你明明看見我了。';
   } else if (ending === 'reportedMisidentified') {
-    lastLine.textContent = '你的回報裡寫著「異常視標」。離場名單裡，那個異常被標成了原始樣本。';
+    lastLine.textContent = noticedFaceEcho
+      ? '最後色板的殘影已留下備註；離場名單仍將替換者標成原始樣本。'
+      : '你的回報裡寫著「異常視標」。離場名單裡，那個異常被標成了原始樣本。';
   } else if (ending === 'silentMisidentified') {
-    lastLine.textContent = '你沒有留下回報。監視器裡的人卻替你按下了「我看見了」。';
+    lastLine.textContent = noticedFaceEcho
+      ? '你在最後色板留下「看不到」，監視器裡的人卻替你按下了「我看見了」。'
+      : '你沒有留下回報。監視器裡的人卻替你按下了「我看見了」。';
+  } else if (ending === 'silentEcho') {
+    lastLine.textContent = '你的「看不到」被系統重新標成「正常辨識」。走廊裡，誰也沒有承認看見那張臉。';
   } else if (ending === 'passed') {
-    lastLine.textContent = recordsCorrect === recordsData.length
+    lastLine.textContent = noticedFaceEcho
+      ? '最後色板的「看不到」被改成「6」。門外傳來敲門聲，像有人在替你作答。'
+      : recordsCorrect === recordsData.length
       ? '五份紀錄都與你記得的一樣。那為什麼門外的走廊，少了一面牆？'
       : noticedChartAnomaly
       ? '你選出的眼睛，全都出現在離場紀錄的簽名欄裡。'

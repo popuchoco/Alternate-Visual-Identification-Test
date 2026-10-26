@@ -223,7 +223,7 @@ canvas {
 .final-sample.selected { background: linear-gradient(135deg, #3b1c38, #3e252e); border-color: var(--red); box-shadow: 0 0 20px rgba(251,106,125,.24); }
 .final-sample img { display: block; width: 100%; height: var(--sample-image-height); object-fit: cover; filter: saturate(1.08) sepia(.1) hue-rotate(138deg); }
 .final-sample.selected img { filter: saturate(1.28) contrast(1.05) sepia(.08) hue-rotate(308deg); }
-.final-sample .face-anomaly-layer { position: absolute; z-index: 1; top: 6px; left: 6px; width: calc(100% - 12px); height: var(--sample-image-height); pointer-events: none; }
+.final-sample .face-anomaly-layer { position: absolute; z-index: 1; top: 6px; left: 6px; width: calc(100% - 12px); height: var(--sample-image-height); object-fit: cover; pointer-events: none; }
 .final-sample .face-eye-echo { clip-path: inset(23% 50% 64% 29%); transform: translate(2px, 1px); }
 .final-sample .face-mouth-echo { clip-path: inset(54% 35% 33% 37%); transform: translateX(3px) scaleX(1.04); }
 .face-label { display: block; padding-top: 7px; color: #b7d8cd; font-size: .72rem; }
