@@ -94,6 +94,7 @@ const recordsData = [
 let currentPlate = 0;
 let plateCorrect = 0;
 let plateAnswers = [];
+let hueReference = null;
 let hueOrder = [];
 let selectedHueIndex = null;
 let hueAttempts = 0;
@@ -274,6 +275,7 @@ function resetGame() {
   currentPlate = 0;
   plateCorrect = 0;
   plateAnswers = [];
+  hueReference = null;
   hueOrder = [];
   selectedHueIndex = null;
   hueAttempts = 0;
@@ -434,12 +436,13 @@ function checkPlate(choice) {
 function initHue() {
   const round = hueRounds[currentHueRound];
   const correctSequence = createHueSequence(round);
-  // The first swatch is a fixed anchor, like a familiar hue-grid test.
-  hueOrder = [correctSequence[0], ...shuffle(correctSequence.slice(1))];
+  // Keep the anchor outside the sortable array so it cannot be exchanged.
+  hueReference = correctSequence[0];
+  hueOrder = shuffle(correctSequence.slice(1));
   selectedHueIndex = null;
   hueAttempts = 0;
   $('hue-progress').textContent = `色相排列 ${currentHueRound + 1} / ${hueRounds.length}　｜　${round.name}`;
-  $('hue-instruction').textContent = `點選兩個色塊即可交換，排成由左至右連續的色彩漸層。最左側色塊為參照。本組共 ${round.count} 格。`;
+  $('hue-instruction').textContent = `第一格是固定參照色（不可移動）。只交換後方色塊，從參照色開始，由左至右排出連續色階。本組共 ${round.count} 格。`;
   renderHue();
   setFeedback('hue-feedback', '校準中。');
 }
@@ -447,12 +450,19 @@ function initHue() {
 function renderHue() {
   const container = $('hue-container');
   container.replaceChildren();
+  const reference = document.createElement('div');
+  reference.className = 'hue-block hue-reference';
+  reference.style.background = hueReference;
+  reference.setAttribute('role', 'img');
+  reference.setAttribute('aria-label', '固定參照色，不可移動');
+  reference.setAttribute('title', '固定參照色，不可移動');
+  container.appendChild(reference);
   hueOrder.forEach((color, index) => {
     const block = document.createElement('button');
     block.type = 'button';
     block.className = 'hue-block';
     block.style.background = color;
-    block.setAttribute('aria-label', `色塊 ${index + 1}`);
+    block.setAttribute('aria-label', `可排序色塊 ${index + 1}`);
     block.setAttribute('aria-pressed', String(selectedHueIndex === index));
     if (selectedHueIndex === index) block.classList.add('selected');
     block.addEventListener('click', () => selectHue(index));
@@ -481,7 +491,9 @@ function checkHue() {
   actionLocked = true;
   hueAttempts += 1;
   const correctSequence = createHueSequence(hueRounds[currentHueRound]);
-  const correct = hueOrder.every((color, index) => color === correctSequence[index]);
+  const submittedSequence = [hueReference, ...hueOrder];
+  const correct = submittedSequence.length === correctSequence.length
+    && submittedSequence.every((color, index) => color === correctSequence[index]);
   if (correct) {
     hueCorrectRounds += 1;
     setFeedback('hue-feedback', '排列完成。本組校準已記錄。', 'green');

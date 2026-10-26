@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>虹膜色彩校準 | Colour &amp; Perception Lab</title>
-  <link rel="stylesheet" href="style.css?v=20261026c">
+  <link rel="stylesheet" href="style.css?v=20261026d">
 </head>
 <body>
   <div id="app">
@@ -59,7 +59,7 @@
     <div id="screen-hue" class="screen">
       <h2>階段二：色相排序</h2>
       <p id="hue-progress" class="test-progress">色相排列 1 / 4</p>
-      <p id="hue-instruction">點選兩個色塊即可交換，排成由左至右連續的色彩漸層。最左側色塊為參照。</p>
+      <p id="hue-instruction">最左側第一格為固定參照色，不可移動。只交換後方色塊，由參照色開始排出連續色階。</p>
       <div id="hue-container"></div>
       <button id="btn-check-hue">確認排列</button>
       <p id="hue-feedback" class="feedback"></p>
@@ -137,6 +137,6 @@
 
   <div id="attention-note" class="attention-note" role="status" aria-live="polite" hidden></div>
 
-  <script src="game.js?v=20261026c"></script>
+  <script src="game.js?v=20261026d"></script>
 </body>
 </html>
