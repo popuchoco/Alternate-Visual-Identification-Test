@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>虹膜色彩校準 | Colour &amp; Perception Lab</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20261026b">
 </head>
 <body>
   <div id="app">
@@ -48,7 +48,7 @@
     <!-- Color Blindness Plates -->
     <div id="screen-plates" class="screen">
       <h2>階段一：色點辨讀</h2>
-      <p id="plate-progress" class="test-progress">色點校準 1 / 3</p>
+      <p id="plate-progress" class="test-progress">色點校準 1 / 6　｜　明顯色差</p>
       <p>你看到的數字是什麼？</p>
       <canvas id="plate-canvas" width="400" height="400"></canvas>
       <div id="plate-options" class="options"></div>
@@ -94,7 +94,7 @@
     <!-- Acuity Chart Test -->
     <div id="screen-acuity" class="screen">
       <h2>階段四：視標辨識</h2>
-      <p id="acuity-instruction">這是示意用方向視標圖。請看最上方最大的一個 E，判斷開口方向。</p>
+      <p id="acuity-instruction">這是示意用方向視標圖（非標準視力檢查）。請看最上方最大的一個 E，判斷它的開口方向。</p>
       <img id="acuity-img" src="images/chart_normal.jpg" alt="Tumbling E 方向視標示意圖">
       <div id="acuity-options" class="options"></div>
       <p id="acuity-feedback" class="feedback"></p>
@@ -135,6 +135,6 @@
 
   <div id="attention-note" class="attention-note" role="status" aria-live="polite" hidden></div>
 
-  <script src="game.js"></script>
+  <script src="game.js?v=20261026b"></script>
 </body>
 </html>

@@ -414,6 +414,14 @@ canvas {
 .unsettled #faces-container .face-card { background: linear-gradient(150deg, #103234, #202036); border-color: #3f6b6b; }
 .unsettled #faces-container .face-card.selected { background: linear-gradient(135deg, #3b1c38, #3e252e); border-color: var(--red); }
 #jumpscare { background: radial-gradient(ellipse at 50% 42%, #1b5454, #26304a 54%, #472346); }
+#screen-ending.false-pass {
+  border-color: #bd6174;
+  background: radial-gradient(ellipse at 50% 0%, rgba(125, 41, 77, .3), transparent 58%), linear-gradient(138deg, rgba(24, 38, 43, .98), rgba(43, 24, 42, .98));
+  box-shadow: 0 24px 90px #0009, 0 0 44px rgba(199, 67, 95, .18);
+}
+#screen-ending.false-pass h2 { animation: glitch .18s steps(2, end) 4; }
+#screen-ending.false-pass .creepy { color: #ff9b9e; text-shadow: 0 0 14px rgba(255, 92, 120, .42); }
+#screen-ending.false-pass-revealed { border-color: #d45b74; box-shadow: 0 24px 90px #0009, 0 0 62px rgba(219, 60, 91, .28); }
 .attention-note {
   position: fixed;
   right: max(18px, env(safe-area-inset-right));

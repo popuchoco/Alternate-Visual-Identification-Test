@@ -11,9 +11,12 @@ const screens = {
 };
 
 const plates = [
-  { number: 74, options: [74, 21, 47, '看不到'] },
-  { number: 8, options: [8, 3, 6, '看不到'] },
-  { number: 42, options: [42, 24, 12, '看不到'] }
+  { number: 74, options: [74, 21, 47, '看不到'], label: '明顯色差', figureHue: 20, fieldHue: 150, hueJitter: 5 },
+  { number: 8, options: [8, 3, 6, '看不到'], label: '基礎紅綠辨讀', figureHue: 17, fieldHue: 125, hueJitter: 6 },
+  { number: 42, options: [42, 24, 12, '看不到'], label: '中等色差', figureHue: 18, fieldHue: 96, hueJitter: 7 },
+  { number: 35, options: [35, 53, 3, '看不到'], label: '近似色辨讀', figureHue: 21, fieldHue: 70, hueJitter: 7 },
+  { number: 16, options: [16, 18, 76, '看不到'], label: '高度近似色', figureHue: 25, fieldHue: 49, hueJitter: 6 },
+  { number: 6, options: [6, 9, 5, '看不到'], label: '極近色辨讀', figureHue: 29, fieldHue: 40, hueJitter: 4 }
 ];
 
 const hueRounds = [
@@ -292,6 +295,7 @@ function resetGame() {
   document.title = DEFAULT_PAGE_TITLE;
   document.body.classList.remove('unsettled');
   document.body.classList.remove('scare', 'flicker');
+  screens.ending.classList.remove('false-pass', 'false-pass-revealed');
   $('jumpscare').style.display = 'none';
 }
 
@@ -318,7 +322,7 @@ function drawPlate() {
   const canvas = $('plate-canvas');
   const ctx = canvas.getContext('2d');
   const plate = plates[currentPlate];
-  $('plate-progress').textContent = `色點校準 ${currentPlate + 1} / ${plates.length}`;
+  $('plate-progress').textContent = `色點校準 ${currentPlate + 1} / ${plates.length}　｜　${plate.label}`;
   const size = canvas.width;
   ctx.clearRect(0, 0, size, size);
 
@@ -344,9 +348,11 @@ function drawPlate() {
     const isFigure = maskData[pixel] > 128;
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = isFigure
-      ? (Math.random() > .4 ? '#dc6656' : '#bd463d')
-      : (Math.random() > .4 ? '#6a9c76' : '#4f7e63');
+    const hue = isFigure ? plate.figureHue : plate.fieldHue;
+    const hueOffset = (Math.random() - .5) * plate.hueJitter * 2;
+    const saturation = 56 + (Math.random() - .5) * 12;
+    const lightness = 58 + (Math.random() - .5) * 12;
+    ctx.fillStyle = `hsl(${(hue + hueOffset + 360) % 360} ${saturation}% ${lightness}%)`;
     ctx.fill();
   }
 
@@ -381,11 +387,11 @@ function checkPlate(choice) {
       drawPlate();
       return;
     }
-    if (plateCorrect < 2) {
+    if (plateCorrect < 3) {
       addDistortion(16);
     }
-    distortion = Math.max(distortion, plateCorrect < 2 ? 28 : 16);
-    if (plateCorrect < 2) setFeedback('plate-feedback', '色點辨讀已完成。結果已記錄。');
+    distortion = Math.max(distortion, plateCorrect < 3 ? 28 : 16);
+    if (plateCorrect < 3) setFeedback('plate-feedback', '色點辨讀已完成。結果已記錄。');
     updateMonitor('階段二 / 色相排序', distortion);
     showScreen('hue');
     initHue();
@@ -726,7 +732,7 @@ $('btn-submit-fakes').addEventListener('click', () => {
   const correctFakes = facesData.filter((face) => face.isFake).map((face) => face.id);
   const isCorrect = correctFakes.every((id) => selectedFaces.has(id)) && selectedFaces.size === correctFakes.length;
 
-  if (isCorrect && (plateCorrect < 2 || hueCorrectRounds < 2 || recordsCorrect < 3)) {
+  if (isCorrect && (plateCorrect < 3 || hueCorrectRounds < 2 || recordsCorrect < 3)) {
     setFeedback('fakes-feedback', '身份判讀相符，但前幾段校準紀錄互相矛盾。門鎖拒絕了你的工號。', 'red');
     window.setTimeout(() => endGame(false, '你辨識出了名單上的替換者。可惜，檢測中心認為真正異常的是你。', 'reclassified'), 1500);
   } else if (isCorrect && hasReportedAnomaly) {
@@ -743,6 +749,7 @@ $('btn-submit-fakes').addEventListener('click', () => {
 
 function endGame(success, message, ending) {
   showScreen('ending');
+  screens.ending.classList.remove('false-pass', 'false-pass-revealed');
   $('facility-header').hidden = true;
   const title = $('ending-title');
   const text = $('ending-text');
@@ -771,6 +778,29 @@ function endGame(success, message, ending) {
     lastLine.textContent = '黑暗中，有東西在笑。它現在知道你的名字了。';
   }
   text.append(result, lastLine);
+  if (ending === 'passed') {
+    // Let the green result feel safe for a beat, then make the exit record contradict it.
+    window.setTimeout(() => {
+      if (!screens.ending.classList.contains('active')) return;
+      screens.ending.classList.add('false-pass');
+      title.textContent = '離場核對中';
+      title.style.color = 'var(--amber)';
+      result.textContent = '測驗結果：通過。出口影像：未確認。';
+      lastLine.textContent = '等等——螢幕裡的受試者還坐在椅子上。她的眼睛正跟著你移動。';
+      document.title = '你還沒有離場｜虹膜色彩校準';
+      sting();
+      flicker(900);
+      triggerJumpScare(() => {
+        if (!screens.ending.classList.contains('active')) return;
+        screens.ending.classList.add('false-pass-revealed');
+        title.textContent = '離場紀錄已封存';
+        title.style.color = 'var(--red)';
+        result.textContent = '檢測通過。離場確認失敗。';
+        lastLine.textContent = '走廊裡的人剛才回答了你的名字。監視器裡，椅子上的你也在回答。';
+        document.title = '有兩個你｜虹膜色彩校準';
+      });
+    }, 1400);
+  }
   if (!success) {
     document.body.classList.add('scare');
     window.setTimeout(() => document.body.classList.remove('scare'), 1800);
