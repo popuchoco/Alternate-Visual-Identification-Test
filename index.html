@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>虹膜色彩校準 | Colour &amp; Perception Lab</title>
-  <link rel="stylesheet" href="style.css?v=20261026g">
+  <link rel="stylesheet" href="style.css?v=20261026i">
 </head>
 <body>
   <div id="app">
@@ -37,6 +37,7 @@
 
     <!-- Intro -->
     <div id="screen-intro" class="screen">
+      <h2>檢測前說明</h2>
       <div class="narrative">
         <p>歡迎來到虹膜色彩研究室。本次流程包含色點辨讀、色相排序，以及影像輪廓確認。</p>
         <p>請維持螢幕亮度，並在每個步驟依直覺作答。色相排序可點選兩格互換；每一組都會提供新的色彩範圍。</p>
@@ -49,7 +50,7 @@
     <div id="screen-plates" class="screen">
       <h2>階段一：色點辨讀</h2>
       <p id="plate-progress" class="test-progress">色點校準 1 / 6　｜　明顯色差</p>
-      <p>你看到的數字是什麼？</p>
+      <p id="plate-instruction">你看到的數字是什麼？</p>
       <canvas id="plate-canvas" width="400" height="400"></canvas>
       <div id="plate-options" class="options"></div>
       <p id="plate-feedback" class="feedback"></p>
@@ -120,7 +121,7 @@
     <div id="screen-fakes" class="screen">
       <p class="eyebrow">最終階段 / 原始影像核對</p>
       <h2>哪些記憶被換掉了？</h2>
-      <p>並排比對剛才看過的人與物件。每組選出仍保有最初記憶的一份；留意眼距、嘴角、窗格、屋頂與氣球吊籃。四組完成後只能提交一次。</p>
+      <p>這些是剛才視力檢測封存的影像。每組選出仍保有原始記憶的一份；其中一張人像幾乎一樣，只偏了一點點。留意眼距、嘴角、窗格、屋頂與氣球吊籃。四組完成後只能提交一次。</p>
       <p id="final-progress" class="record-progress" aria-live="polite"></p>
       <div id="faces-container" class="final-comparisons"></div>
       <button id="btn-submit-fakes">提交判斷</button>
@@ -129,14 +130,14 @@
 
     <!-- Endings -->
     <div id="screen-ending" class="screen">
-      <h2 id="ending-title"></h2>
-      <div id="ending-text" class="narrative"></div>
+      <h2 id="ending-title" aria-live="polite"></h2>
+      <div id="ending-text" class="narrative" aria-live="polite"></div>
       <button id="btn-restart">重新檢測</button>
     </div>
   </div>
 
   <div id="attention-note" class="attention-note" role="status" aria-live="polite" hidden></div>
 
-  <script src="game.js?v=20261026g"></script>
+  <script src="game.js?v=20261026i"></script>
 </body>
 </html>
