@@ -240,15 +240,13 @@ canvas {
 .final-sample .face-anomaly-layer { position: absolute; z-index: 1; top: 6px; left: 6px; width: calc(100% - 12px); height: var(--sample-image-height); object-fit: cover; pointer-events: none; }
 .final-sample .face-eye-echo { clip-path: inset(23% 50% 64% 29%); transform: translate(2px, 1px); }
 .final-sample .face-mouth-echo { clip-path: inset(54% 35% 33% 37%); transform: translateX(3px) scaleX(1.04); }
-.final-sample .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 30%); filter: hue-rotate(72deg) saturate(3.1) contrast(1.22) brightness(1.06); }
-.final-sample.selected .face-eye-tint { filter: hue-rotate(72deg) saturate(3.1) contrast(1.22) brightness(1.06); }
+.final-sample .face-eye-tint { clip-path: ellipse(3.5% 2.8% at 48% 25%); filter: hue-rotate(150deg) saturate(2.05) contrast(1.18) brightness(1.04); }
 .face-label { display: block; padding-top: 7px; color: #b7d8cd; font-size: .72rem; }
 #btn-submit-fakes { display: block; width: min(100%, 300px); min-height: 48px; margin: 18px auto; }
 
 @media (max-width: 900px) {
   /* object-fit: cover crops portrait photos differently at each card width. */
-  .final-sample .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 28%); }
-  .final-sample.selected .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 28%); }
+  .final-sample .face-eye-tint { clip-path: ellipse(3.5% 2.8% at 48% 25%); }
 }
 
 #jumpscare {
@@ -297,8 +295,7 @@ body.scare .screen.active { animation: pulse .55s ease 3; }
   .final-comparisons { grid-template-columns: 1fr; gap: 10px; }
   .final-pair { padding: 10px; }
   .final-sample { --sample-image-height: clamp(120px, 38vw, 170px); }
-  .final-sample .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 22%); }
-  .final-sample.selected .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 22%); }
+  .final-sample .face-eye-tint { clip-path: ellipse(3.5% 2.8% at 48% 20%); }
   .records-pair { gap: 8px; }
   .record-frame { padding: 6px; }
   .record-frame img { height: clamp(125px, 38vw, 190px); }
@@ -321,23 +318,20 @@ body.scare .screen.active { animation: pulse .55s ease 3; }
 }
 
 @media (min-width: 421px) and (max-width: 480px) {
-  .final-sample .face-eye-tint,
-  .final-sample.selected .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 27%); }
+  .final-sample .face-eye-tint { clip-path: ellipse(3.5% 2.8% at 48% 25%); }
 }
 
 @media (max-width: 420px) {
   /* Stack each A/B pair so the small iris and expression details remain inspectable. */
   .final-pair-choices { grid-template-columns: 1fr; gap: 8px; }
   .final-sample { --sample-image-height: clamp(185px, 54vw, 220px); }
-  .final-sample .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 18%); }
-  .final-sample.selected .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 18%); }
+  .final-sample .face-eye-tint { clip-path: ellipse(3.5% 2.8% at 48% 20%); }
   .final-sample .face-eye-echo { clip-path: inset(13% 50% 74% 29%); }
   .final-sample .face-mouth-echo { clip-path: inset(62% 35% 24% 37%); }
 }
 
 @media (max-width: 360px) {
-  .final-sample .face-eye-tint,
-  .final-sample.selected .face-eye-tint { clip-path: ellipse(4.2% 3.6% at 50% 19%); }
+  .final-sample .face-eye-tint { clip-path: ellipse(3.5% 2.8% at 48% 22%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
