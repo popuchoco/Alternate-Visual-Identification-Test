@@ -4,9 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>虹膜色彩校準 | Colour &amp; Perception Lab</title>
-  <link rel="stylesheet" href="style.css?v=20261027c">
+  <link rel="stylesheet" href="style.css?v=20261106a">
 </head>
 <body>
+  <div class="accessibility-controls" role="group" aria-label="可及性">
+    <label><input id="sound-toggle" type="checkbox"> 環境音</label>
+    <label><input id="motion-toggle" type="checkbox" checked> 閃爍效果</label>
+  </div>
   <div id="app">
     <header id="facility-header" class="facility-header" hidden>
       <div class="facility-meta">
@@ -27,21 +31,29 @@
       <h1 class="calibration-title">虹膜色彩校準</h1>
       <p class="eyebrow">COLOUR &amp; PERCEPTION LAB / 受試者入口</p>
       <p class="subtitle">一份簡短的色點、色階與影像辨識測驗。<br>請在自然亮度下觀看，依直覺作答即可。</p>
-      <button id="btn-start">開始校準</button>
-      <div class="accessibility-controls">
-        <label><input id="sound-toggle" type="checkbox"> 環境音</label>
-        <label><input id="motion-toggle" type="checkbox" checked> 閃爍效果</label>
-      </div>
-      <p class="warning">聲音預設關閉；可隨時關閉動態效果。無須登入，也不會使用鏡頭或麥克風。</p>
+      <button id="btn-start" type="button">開始校準</button>
+      <p id="prior-note" class="prior-note" hidden></p>
+      <p id="ending-index" class="ending-index" hidden></p>
+      <button id="btn-ng" type="button" hidden>帶著殘檔再測</button>
+      <button id="btn-clear-progress" class="ghost-button" type="button" hidden>清除本分頁紀錄</button>
+      <p class="warning">環境音為本機合成、預設關閉，可在畫面上方隨時關掉。減少動態或關閉閃爍時，音高不再起伏。無須登入，也不會使用鏡頭或麥克風。</p>
     </div>
 
     <!-- Intro -->
     <div id="screen-intro" class="screen">
       <h2>檢測前說明</h2>
       <div class="narrative">
-        <p>歡迎來到虹膜色彩研究室。本次流程包含色點辨讀、色相排序，以及影像輪廓確認。</p>
-        <p>請維持螢幕亮度，並在每個步驟依直覺作答。色相排序可點選兩格互換；每一組都會提供新的色彩範圍。</p>
-        <p>這是互動敘事作品，不是醫療診斷。你的作答只保留在這個分頁的記憶中，不會送出。</p>
+        <p>歡迎來到虹膜色彩研究室。請維持螢幕亮度，並依當下所見作答。</p>
+        <p>本次校準依序五段，不能跳關。前兩段只記錄選擇，不會中途宣布通過或失敗。</p>
+        <ol class="stage-frame">
+          <li>色點辨讀</li>
+          <li>色相排序</li>
+          <li>影像輪廓</li>
+          <li>方向視標</li>
+          <li>影像核對</li>
+        </ol>
+        <p>色相排序可點選兩格互換，也能用 Tab、方向鍵與 Enter。每一組都會換一組色彩範圍。窄螢幕可左右滑動色塊列。</p>
+        <p>這是互動敘事作品，不是視力、色覺或醫療診斷。作答與結案標題只留在這個分頁，不會送出，也不會使用鏡頭或麥克風。</p>
       </div>
       <button id="btn-to-plates">接受檢測</button>
     </div>
@@ -61,7 +73,9 @@
       <h2>階段二：色相排序</h2>
       <p id="hue-progress" class="test-progress">色相排列 1 / 4</p>
       <p id="hue-instruction">最左側第一格為固定參照色，不可移動。只交換後方色塊，由參照色開始排出連續色階。</p>
-      <div id="hue-container"></div>
+      <div class="hue-scroll">
+        <div id="hue-container"></div>
+      </div>
       <button id="btn-check-hue">確認排列</button>
       <p id="hue-feedback" class="feedback"></p>
     </div>
@@ -87,7 +101,7 @@
       <p id="vision-archive-note" class="archive-notice" aria-live="polite"></p>
       <p id="vision-instruction">請看清圓形影像中的內容，並選擇你看到的。</p>
       <div id="vision-image-container" class="vision-frame">
-        <img id="vision-img" src="" alt="視覺測試影像">
+        <img id="vision-img" alt="視覺測試影像" decoding="async">
       </div>
       <div id="vision-options" class="options"></div>
       <p id="vision-feedback" class="feedback"></p>
@@ -114,7 +128,7 @@
     </div>
 
     <!-- Jump Scare Overlay -->
-    <div id="jumpscare" role="alertdialog" aria-label="突發影像" style="display:none">
+    <div id="jumpscare" role="alertdialog" aria-modal="true" aria-label="突發影像" aria-hidden="true" tabindex="-1" style="display:none">
       <img id="jumpscare-img" src="images/jumpscare.jpg" alt="一張突然出現在畫面中的蒼白人臉">
     </div>
 
@@ -132,13 +146,15 @@
     <!-- Endings -->
     <div id="screen-ending" class="screen">
       <h2 id="ending-title" aria-live="polite"></h2>
+      <ul id="ending-score" class="ending-score" aria-label="本輪準確度"></ul>
       <div id="ending-text" class="narrative" aria-live="polite"></div>
-      <button id="btn-restart">重新檢測</button>
+      <p class="warning">以上為敘事紀錄，不是視力、色覺或醫療診斷。</p>
+      <button id="btn-restart" type="button">重新檢測</button>
     </div>
   </div>
 
   <div id="attention-note" class="attention-note" role="status" aria-live="polite" hidden></div>
 
-  <script src="game.js?v=20261027c"></script>
+  <script src="game.js?v=20261106a"></script>
 </body>
 </html>

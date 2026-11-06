@@ -136,7 +136,45 @@ let hasSwitchedAway = false;
 let hasReturnedAfterAnomaly = false;
 let attentionTimer = null;
 let ambientContext = null;
-let ambientGain = null;
+let ambientMaster = null;
+let ambientClinical = null;
+let ambientUnease = null;
+let ambientNoise = null;
+let ambientFilter = null;
+let ambientLfoGain = null;
+let runToken = 0;
+let pendingTimers = [];
+let carryPrior = false;
+let didPreload = false;
+
+const PROGRESS_KEY = 'hue-of-the-fake-session';
+const ENDING_TITLES = {
+  witness: '回報已受理',
+  reportConflict: '回報待覆核',
+  silentWitness: '未回報的證詞',
+  reportedMisidentified: '回報遭到退件',
+  silentMisidentified: '未回報紀錄',
+  silentEcho: '未存檔的殘影',
+  reclassified: '受試者重新分類',
+  rejected: '回報遭到退件',
+  misidentified: '檢測失敗',
+  passed: '檢測通過'
+};
+const PRELOAD_IMAGES = [
+  'images/balloon_normal.jpg',
+  'images/balloon_horror.jpg',
+  'images/house_normal.jpg',
+  'images/house_horror.jpg',
+  'images/person_normal_m.jpg',
+  'images/person_fake_m.jpg',
+  'images/person_normal_f.jpg',
+  'images/person_fake_f.jpg',
+  'images/jumpscare.jpg',
+  'images/record_acuity_normal.png',
+  'images/record_acuity_anomaly.png',
+  'images/acuity_chart_extreme.png',
+  'images/acuity_chart_horror.png'
+];
 
 function showScreen(name, moveFocus = true) {
   Object.values(screens).forEach((screen) => screen.classList.remove('active'));
@@ -165,7 +203,8 @@ function updateMonitor(stage, level = distortion) {
     ? `影像殘差 ${displayedLevel}%`
     : '顯示穩定 100%';
   $('signal-meter').style.setProperty('--signal', `${displayedLevel}%`);
-  $('signal-meter').style.width = `${displayedLevel}%`;
+  document.body.style.setProperty('--grade', anomalyRevealed ? String(Math.min(1, displayedLevel / 100)) : '0');
+  applyAmbientIntensity();
 
   const state = $('facility-state');
   if (!anomalyRevealed) {
@@ -191,9 +230,9 @@ function addDistortion(amount) {
 }
 
 function flicker(duration = 850) {
-  if (!$('motion-toggle').checked) return;
+  if (!$('motion-toggle').checked || document.body.classList.contains('quiet-motion')) return;
   document.body.classList.add('flicker');
-  window.setTimeout(() => document.body.classList.remove('flicker'), duration);
+  schedule(() => document.body.classList.remove('flicker'), duration);
 }
 
 function setFeedback(id, message, tone = 'amber') {
@@ -215,32 +254,307 @@ function shuffle(items) {
   return result;
 }
 
-function startAmbient() {
-  if (!$('sound-toggle').checked || !window.AudioContext) return;
+function soundOn() {
+  return Boolean($('sound-toggle').checked);
+}
+
+function motionSettled() {
+  return document.body.classList.contains('quiet-motion') || motionPreference?.matches;
+}
+
+function schedule(fn, delay) {
+  const token = runToken;
+  const timer = window.setTimeout(() => {
+    pendingTimers = pendingTimers.filter((id) => id !== timer);
+    if (token !== runToken) return;
+    fn();
+  }, delay);
+  pendingTimers.push(timer);
+  return timer;
+}
+
+function clearScheduled() {
+  pendingTimers.forEach((id) => window.clearTimeout(id));
+  pendingTimers = [];
+  runToken += 1;
+}
+
+function readProgress() {
+  try {
+    const raw = sessionStorage.getItem(PROGRESS_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || data.v !== 1 || !data.last) return null;
+    return data;
+  } catch (error) {
+    return null;
+  }
+}
+
+function writeProgress(next) {
+  try {
+    sessionStorage.setItem(PROGRESS_KEY, JSON.stringify(next));
+  } catch (error) {
+    // Private mode can reject storage; the run still finishes in memory.
+  }
+}
+
+function renderTitleProgress() {
+  const data = readProgress();
+  const hasRun = Boolean(data?.runs && data.last?.title);
+  $('prior-note').hidden = !hasRun;
+  $('ending-index').hidden = !hasRun;
+  $('btn-ng').hidden = !hasRun;
+  $('btn-clear-progress').hidden = !hasRun;
+  if (!hasRun) return;
+  const best = Number.isFinite(data.bestRecords) ? data.bestRecords : data.last.recordsCorrect;
+  $('prior-note').textContent = `此分頁留有上次結案「${data.last.title}」（第 ${data.runs} 次，封存最高 ${best}/5）。關掉分頁就會消失。`;
+  const titles = [...new Set((data.endings || []).map((id) => ENDING_TITLES[id] || id))];
+  $('ending-index').textContent = titles.length ? `已見過的結案：${titles.join('、')}` : '';
+}
+
+function rememberRun(ending, finalCorrect) {
+  const prior = readProgress();
+  const snapshot = {
+    ending,
+    title: ENDING_TITLES[ending] || (finalCorrect ? '檢測通過' : '檢測失敗'),
+    plateCorrect,
+    hueCorrectRounds,
+    recordsCorrect,
+    finalCorrect: Boolean(finalCorrect),
+    reported: hasReportedAnomaly
+  };
+  const endings = Array.isArray(prior?.endings) ? prior.endings.filter((id) => typeof id === 'string') : [];
+  if (!endings.includes(ending)) endings.push(ending);
+  writeProgress({
+    v: 1,
+    runs: (Number.isFinite(prior?.runs) ? prior.runs : 0) + 1,
+    endings,
+    bestRecords: Math.max(Number(prior?.bestRecords) || 0, recordsCorrect),
+    last: snapshot
+  });
+  return prior;
+}
+
+function accuracyEpilogue(prior) {
+  const last = prior?.last;
+  if (!last || !Number.isFinite(last.recordsCorrect) || !Number.isFinite(last.plateCorrect)) return '';
+  const recordDelta = recordsCorrect - last.recordsCorrect;
+  const plateDelta = plateCorrect - last.plateCorrect;
+  const hueDelta = hueCorrectRounds - (Number(last.hueCorrectRounds) || 0);
+  if (last.ending === 'passed' && hasReportedAnomaly) {
+    return '上次這個分頁把你簽成已經離場。這次的回報和那份簽名互相矛盾，兩份檔案都還在。';
+  }
+  if (recordDelta > 0 && plateDelta >= 0 && hueDelta >= 0) {
+    return `和上次相比，封存吻合從 ${last.recordsCorrect}/5 升到 ${recordsCorrect}/5。值班室改採這一份。`;
+  }
+  if (recordDelta < 0 || (plateDelta < 0 && hueDelta < 0)) {
+    return `上次的封存吻合是 ${last.recordsCorrect}/5，這次是 ${recordsCorrect}/5。值班室把較完整的舊檔留在上面。`;
+  }
+  return `這次的色點 ${plateCorrect}/6、色相 ${hueCorrectRounds}/4、封存 ${recordsCorrect}/5，和上次殘檔相近。值班室沒有決定要留哪一份。`;
+}
+
+function priorArchiveLine() {
+  if (!carryPrior) return '';
+  const last = readProgress()?.last;
+  if (!last?.title || !Number.isFinite(last.recordsCorrect)) return '';
+  return `上次殘檔還在這個分頁：結案「${last.title}」，封存吻合 ${last.recordsCorrect}/5。這次的觀察會蓋過它。`;
+}
+
+function preloadImages() {
+  if (didPreload) return;
+  didPreload = true;
+  const queue = () => {
+    PRELOAD_IMAGES.forEach((src) => {
+      const image = new Image();
+      image.decoding = 'async';
+      image.src = src;
+    });
+  };
+  if ('requestIdleCallback' in window) window.requestIdleCallback(queue, { timeout: 800 });
+  else window.setTimeout(queue, 80);
+}
+
+function showPreparedImage(image, src) {
+  const token = `${Date.now()}-${Math.random()}`;
+  const frame = image.closest('.vision-frame, .record-frame, .acuity-archive-frame, .final-sample');
+  image.dataset.loadToken = token;
+  image.decoding = 'async';
+  image.classList.add('defer-paint');
+  image.classList.remove('is-ready');
+  frame?.classList.add('is-loading');
+  const finish = () => {
+    if (image.dataset.loadToken !== token) return;
+    image.classList.add('is-ready');
+    if (frame && !frame.querySelector('img.defer-paint:not(.is-ready)')) frame.classList.remove('is-loading');
+  };
+  image.onload = finish;
+  image.onerror = finish;
+  if (image.getAttribute('src') === src && image.complete && image.naturalWidth > 0) {
+    finish();
+    return;
+  }
+  image.src = src;
+  if (image.complete && image.naturalWidth > 0) finish();
+}
+
+function connectVoice(context, type, frequency, amount, destination) {
+  const voice = context.createOscillator();
+  const gain = context.createGain();
+  voice.type = type;
+  voice.frequency.value = frequency;
+  gain.gain.value = amount;
+  voice.connect(gain);
+  gain.connect(destination);
+  voice.start();
+  return voice;
+}
+
+function ensureAudio() {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!soundOn() || !Ctx) return null;
   if (!ambientContext) {
-    ambientContext = new AudioContext();
-    const first = ambientContext.createOscillator();
-    const second = ambientContext.createOscillator();
-    ambientGain = ambientContext.createGain();
-    first.type = 'sine';
-    second.type = 'sine';
-    first.frequency.value = 47;
-    second.frequency.value = 49;
-    ambientGain.gain.value = 0;
-    first.connect(ambientGain);
-    second.connect(ambientGain);
-    ambientGain.connect(ambientContext.destination);
-    first.start();
-    second.start();
+    const context = new Ctx();
+    const master = context.createGain();
+    master.gain.value = 0.8;
+    master.connect(context.destination);
+
+    const clinical = context.createGain();
+    clinical.gain.value = 0.0001;
+    clinical.connect(master);
+    connectVoice(context, 'sine', 196, 0.05, clinical);
+    connectVoice(context, 'triangle', 293.7, 0.022, clinical);
+
+    const unease = context.createGain();
+    unease.gain.value = 0.0001;
+    unease.connect(master);
+    connectVoice(context, 'sine', 49, 0.1, unease);
+    connectVoice(context, 'sine', 52, 0.08, unease);
+    connectVoice(context, 'triangle', 98, 0.03, unease);
+
+    const bufferSize = Math.max(1, Math.floor(context.sampleRate * 2));
+    const noiseBuffer = context.createBuffer(1, bufferSize, context.sampleRate);
+    const channel = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i += 1) channel[i] = (Math.random() * 2) - 1;
+    const noise = context.createBufferSource();
+    noise.buffer = noiseBuffer;
+    noise.loop = true;
+    const filter = context.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 280;
+    filter.Q.value = 0.6;
+    const noiseGain = context.createGain();
+    noiseGain.gain.value = 0.0001;
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(master);
+    noise.start();
+
+    const lfo = context.createOscillator();
+    const lfoGain = context.createGain();
+    lfo.frequency.value = 0.16;
+    lfoGain.gain.value = 0.0001;
+    lfo.connect(lfoGain);
+    lfoGain.connect(unease.gain);
+    lfo.start();
+
+    ambientContext = context;
+    ambientMaster = master;
+    ambientClinical = clinical;
+    ambientUnease = unease;
+    ambientNoise = noiseGain;
+    ambientFilter = filter;
+    ambientLfoGain = lfoGain;
   }
   if (ambientContext.state === 'suspended') ambientContext.resume();
-  ambientGain.gain.setTargetAtTime(.018, ambientContext.currentTime, .5);
+  return ambientContext;
+}
+
+function applyAmbientIntensity() {
+  if (!ambientContext || !soundOn() || !ambientNoise) return;
+  const now = ambientContext.currentTime;
+  const quiet = motionSettled();
+  const grade = anomalyRevealed ? Math.min(1, Math.max(0, distortion / 100)) : 0;
+  const noiseTarget = anomalyRevealed ? (quiet ? 0.006 : 0.008 + grade * 0.016) : 0.0001;
+  ambientNoise.gain.setTargetAtTime(noiseTarget, now, 0.7);
+  if (ambientFilter) {
+    const cutoff = quiet ? 320 : 260 + grade * 520;
+    ambientFilter.frequency.setTargetAtTime(cutoff, now, 0.8);
+  }
+  if (ambientLfoGain) {
+    const depth = !anomalyRevealed || quiet ? 0.0001 : 0.08 + grade * 0.14;
+    ambientLfoGain.gain.setTargetAtTime(depth, now, 0.6);
+  }
+}
+
+function setAmbientMode(mode) {
+  if (!soundOn()) return;
+  const context = ensureAudio();
+  if (!context || !ambientClinical || !ambientUnease) return;
+  const now = context.currentTime;
+  const quiet = motionSettled();
+  const clinicalTarget = mode === 'clinical' ? (quiet ? 0.42 : 0.58) : 0.0001;
+  const uneaseTarget = mode === 'unease' ? (quiet ? 0.34 : 0.62) : 0.0001;
+  ambientClinical.gain.setTargetAtTime(clinicalTarget, now, 0.9);
+  ambientUnease.gain.setTargetAtTime(uneaseTarget, now, 1.15);
+  applyAmbientIntensity();
 }
 
 function stopAmbient() {
-  if (ambientContext && ambientGain) {
-    ambientGain.gain.setTargetAtTime(0, ambientContext.currentTime, .2);
-  }
+  if (!ambientContext) return;
+  const now = ambientContext.currentTime;
+  [ambientClinical, ambientUnease, ambientNoise].forEach((node) => {
+    if (node) node.gain.setTargetAtTime(0.0001, now, 0.18);
+  });
+  if (ambientLfoGain) ambientLfoGain.gain.setTargetAtTime(0.0001, now, 0.1);
+  ambientContext.suspend();
+}
+
+function playTone({ frequency = 440, type = 'sine', duration = 0.12, gain = 0.05, slideTo = null }) {
+  const context = ensureAudio();
+  if (!context || !ambientMaster) return;
+  const start = () => {
+    const quiet = motionSettled();
+    const osc = context.createOscillator();
+    const amp = context.createGain();
+    const peak = quiet ? gain * 0.45 : gain;
+    osc.type = quiet ? 'sine' : type;
+    osc.frequency.setValueAtTime(Math.max(40, frequency), context.currentTime);
+    if (slideTo && !quiet) {
+      osc.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), context.currentTime + duration);
+    }
+    amp.gain.setValueAtTime(0.0001, context.currentTime);
+    amp.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak), context.currentTime + 0.02);
+    amp.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration);
+    osc.connect(amp);
+    amp.connect(ambientMaster);
+    osc.start();
+    osc.stop(context.currentTime + duration + 0.03);
+  };
+  if (context.state === 'suspended') context.resume().then(start).catch(() => {});
+  else start();
+}
+
+function playUi(kind) {
+  if (!soundOn()) return;
+  if (kind === 'ok') playTone({ frequency: 587, type: 'sine', duration: 0.08, gain: 0.035 });
+  else if (kind === 'retry') playTone({ frequency: 349, type: 'sine', duration: 0.1, gain: 0.028 });
+  else if (kind === 'bad') {
+    playTone({
+      frequency: anomalyRevealed ? 180 : 311,
+      type: 'triangle',
+      duration: anomalyRevealed ? 0.18 : 0.1,
+      gain: 0.04,
+      slideTo: anomalyRevealed ? 96 : null
+    });
+  } else if (kind === 'select') playTone({ frequency: 494, type: 'sine', duration: 0.045, gain: 0.02 });
+}
+
+function beginFromTitle(withPrior) {
+  carryPrior = Boolean(withPrior && readProgress()?.last);
+  preloadImages();
+  if (soundOn()) setAmbientMode('clinical');
+  showScreen('intro');
 }
 
 function showAttentionNote(message) {
@@ -263,14 +577,17 @@ function revealAnomaly() {
   distortion = Math.max(distortion, 22);
   document.body.classList.add('unsettled');
   updateMonitor('封存紀錄校對', distortion);
-  showAttentionNote($('sound-toggle').checked
-    ? '提示：異常段落可能伴隨短促音效；可重新開始後關閉「環境音」。'
+  setAmbientMode('unease');
+  showAttentionNote(soundOn()
+    ? '提示：異常段落會加強環境音；可在畫面上方關閉。減少動態時音高不會起伏。'
     : '提示：目前已關閉「環境音」，短促異常音效也會一併停用。');
   sting();
   showInterlude();
 }
 
 document.addEventListener('visibilitychange', () => {
+  if (document.hidden && ambientContext?.state === 'running') ambientContext.suspend();
+  else if (!document.hidden && soundOn() && ambientContext) ambientContext.resume();
   if (!anomalyRevealed) return;
   if (document.hidden) {
     hasSwitchedAway = true;
@@ -281,30 +598,33 @@ document.addEventListener('visibilitychange', () => {
     hasReturnedAfterAnomaly = true;
     document.title = '你回來得很快｜虹膜色彩校準';
     showAttentionNote('你回來了。你的答案沒有被清除。');
-    window.setTimeout(() => {
+    schedule(() => {
       if (!document.hidden) document.title = DEFAULT_PAGE_TITLE;
     }, 6500);
   }
 });
 
 function sting() {
-  if (!$('sound-toggle').checked || !window.AudioContext) return;
-  const context = ambientContext || new AudioContext();
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-  oscillator.type = 'sawtooth';
-  oscillator.frequency.setValueAtTime(155, context.currentTime);
-  oscillator.frequency.exponentialRampToValueAtTime(42, context.currentTime + .45);
-  gain.gain.setValueAtTime(.0001, context.currentTime);
-  gain.gain.exponentialRampToValueAtTime(.12, context.currentTime + .02);
-  gain.gain.exponentialRampToValueAtTime(.0001, context.currentTime + .55);
-  oscillator.connect(gain);
-  gain.connect(context.destination);
-  oscillator.start();
-  oscillator.stop(context.currentTime + .6);
+  if (!soundOn()) return;
+  const quiet = motionSettled();
+  playTone({
+    frequency: quiet ? 110 : 146,
+    type: quiet ? 'sine' : 'sawtooth',
+    duration: quiet ? 0.22 : 0.5,
+    gain: quiet ? 0.035 : 0.06,
+    slideTo: quiet ? null : 48
+  });
+}
+
+function clearEndingTone() {
+  screens.ending.classList.remove(
+    'false-pass', 'false-pass-revealed',
+    'tone-witness', 'tone-fracture', 'tone-hold', 'tone-static', 'tone-clear'
+  );
 }
 
 function resetGame() {
+  clearScheduled();
   currentPlate = 0;
   plateCorrect = 0;
   plateAnswers = [];
@@ -332,24 +652,36 @@ function resetGame() {
   window.clearTimeout(attentionTimer);
   $('attention-note').hidden = true;
   document.title = DEFAULT_PAGE_TITLE;
-  document.body.classList.remove('unsettled');
-  document.body.classList.remove('scare', 'flicker');
+  document.body.classList.remove('unsettled', 'scare', 'flicker');
+  document.body.style.setProperty('--grade', '0');
   $('plate-canvas').classList.remove('face-echo-arrival');
-  screens.ending.classList.remove('false-pass', 'false-pass-revealed');
+  clearEndingTone();
+  $('ending-score').replaceChildren();
   $('jumpscare').style.display = 'none';
+  $('jumpscare').setAttribute('aria-hidden', 'true');
+  $('btn-report').disabled = false;
+  $('btn-ignore').disabled = false;
+  $('btn-submit-fakes').disabled = false;
+  $('btn-check-hue').disabled = false;
+  const question = $('interlude-question');
+  question.style.color = '';
 }
 
 // Start and calibration
-$('btn-start').addEventListener('click', () => {
-  startAmbient();
-  showScreen('intro');
+$('btn-start').addEventListener('click', () => beginFromTitle(false));
+$('btn-ng').addEventListener('click', () => beginFromTitle(true));
+$('btn-clear-progress').addEventListener('click', () => {
+  try { sessionStorage.removeItem(PROGRESS_KEY); } catch (error) { /* storage may be blocked */ }
+  carryPrior = false;
+  renderTitleProgress();
 });
 $('sound-toggle').addEventListener('change', () => {
-  if ($('sound-toggle').checked) startAmbient();
+  if (soundOn()) setAmbientMode(anomalyRevealed ? 'unease' : 'clinical');
   else stopAmbient();
 });
 $('motion-toggle').addEventListener('change', () => {
   document.body.classList.toggle('quiet-motion', !$('motion-toggle').checked);
+  if (soundOn()) setAmbientMode(anomalyRevealed ? 'unease' : 'clinical');
 });
 $('btn-to-plates').addEventListener('click', () => {
   resetGame();
@@ -364,8 +696,9 @@ function drawPlate() {
   const plate = plates[currentPlate];
   canvas.classList.remove('face-echo-arrival');
   if (plate.faceEcho && $('motion-toggle').checked && !document.body.classList.contains('quiet-motion')) {
-    void canvas.offsetWidth;
-    canvas.classList.add('face-echo-arrival');
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => canvas.classList.add('face-echo-arrival'));
+    });
   }
   $('plate-progress').textContent = `色點校準 ${currentPlate + 1} / ${plates.length}　｜　${plate.label}`;
   const size = canvas.width;
@@ -460,6 +793,7 @@ function checkPlate(choice) {
   } else if (currentPlate >= 4) {
     addDistortion(7);
   }
+  playUi('ok');
 
   if (plates[currentPlate].faceEcho) {
     setFeedback('plate-feedback', '答案已記錄。要把畫面邊緣的感覺補進備註嗎？', 'amber');
@@ -475,8 +809,9 @@ function checkPlate(choice) {
       button.addEventListener('click', () => {
         noticedFaceEcho = noticed;
         lockOptions('plate-options');
+        playUi('select');
         setFeedback('plate-feedback', noticed ? '備註已封存。' : '未新增備註。', noticed ? 'amber' : 'green');
-        window.setTimeout(advancePlate, 900);
+        schedule(advancePlate, 900);
       });
       noteOptions.appendChild(button);
     });
@@ -485,7 +820,7 @@ function checkPlate(choice) {
   }
 
   setFeedback('plate-feedback', '答案已記錄。請繼續下一張。');
-  window.setTimeout(advancePlate, 1050);
+  schedule(advancePlate, 1050);
 }
 
 function advancePlate() {
@@ -515,7 +850,8 @@ function initHue() {
   selectedHueIndex = null;
   hueAttempts = 0;
   $('hue-progress').textContent = `色相排列 ${currentHueRound + 1} / ${hueRounds.length}　｜　${round.name}`;
-  $('hue-instruction').textContent = `第一格是固定參照色（不可移動）。只交換後方色塊，從參照色開始，由左至右排出連續色階。本組共 ${round.count} 格。`;
+  $('hue-instruction').textContent = `第一格是固定參照色，不可移動。點兩格交換；或用 Tab、方向鍵與 Enter。窄螢幕可左右滑動。本組共 ${round.count} 格。`;
+  $('btn-check-hue').disabled = false;
   renderHue();
   if (currentHueRound > 0) focusFirstControl('hue-container');
   setFeedback('hue-feedback', '校準中。');
@@ -544,25 +880,37 @@ function renderHue() {
   });
 }
 
+function paintHueSelection() {
+  const buttons = $('hue-container').querySelectorAll('button.hue-block');
+  buttons.forEach((block, index) => {
+    block.style.background = hueOrder[index];
+    const selected = selectedHueIndex === index;
+    block.classList.toggle('selected', selected);
+    block.setAttribute('aria-pressed', String(selected));
+    block.setAttribute('aria-label', `可排序色塊 ${index + 1}${selected ? '，已選取' : ''}`);
+  });
+}
+
 function selectHue(index) {
   if (selectedHueIndex === null) {
     selectedHueIndex = index;
-    renderHue();
+    paintHueSelection();
     return;
   }
   if (selectedHueIndex === index) {
     selectedHueIndex = null;
-    renderHue();
+    paintHueSelection();
     return;
   }
   [hueOrder[selectedHueIndex], hueOrder[index]] = [hueOrder[index], hueOrder[selectedHueIndex]];
   selectedHueIndex = null;
-  renderHue();
+  paintHueSelection();
 }
 
 function checkHue() {
   if (actionLocked) return;
   actionLocked = true;
+  $('btn-check-hue').disabled = true;
   hueAttempts += 1;
   const correctSequence = createHueSequence(hueRounds[currentHueRound]);
   const submittedSequence = [hueReference, ...hueOrder];
@@ -570,8 +918,9 @@ function checkHue() {
     && submittedSequence.every((color, index) => color === correctSequence[index]);
   if (correct) {
     hueCorrectRounds += 1;
+    playUi('ok');
     setFeedback('hue-feedback', '排列完成。本組校準已記錄。', 'green');
-    window.setTimeout(() => {
+    schedule(() => {
       actionLocked = false;
       currentHueRound += 1;
       if (currentHueRound < hueRounds.length) {
@@ -582,10 +931,13 @@ function checkHue() {
     }, 700);
   } else if (hueAttempts === 1) {
     actionLocked = false;
+    $('btn-check-hue').disabled = false;
+    playUi('retry');
     setFeedback('hue-feedback', '這組尚未符合參照色階。請重新排列後再試一次。');
   } else {
+    playUi('bad');
     setFeedback('hue-feedback', '本組結果已記錄，將繼續下一組。');
-    window.setTimeout(() => {
+    schedule(() => {
       actionLocked = false;
       currentHueRound += 1;
       if (currentHueRound < hueRounds.length) {
@@ -602,9 +954,14 @@ $('btn-check-hue').addEventListener('click', checkHue);
 function showInterlude() {
   $('interlude-title').textContent = '值班室呼叫';
   const firstAnswer = plateAnswers[0] ?? '未作答';
-  $('interlude-message').textContent = `我剛才也看著你的選擇。第一張色板，你按的是「${firstAnswer}」。封存副本卻記著 71。你不需要回去確認——只要想想，你剛才記得的是哪一個。`;
+  const archived = priorArchiveLine();
+  $('interlude-message').textContent = `我剛才也看著你的選擇。第一張色板，你按的是「${firstAnswer}」。封存副本卻記著 71。你不需要回去確認——只要想想，你剛才記得的是哪一個。${archived ? ` ${archived}` : ''}`;
   $('interlude-signature').textContent = '— 夜班操作員 / 內線 03';
-  $('interlude-question').textContent = '你要將這段訊息寫入檢測紀錄嗎？';
+  const question = $('interlude-question');
+  question.style.color = '';
+  question.textContent = '你要將這段訊息寫入檢測紀錄嗎？';
+  $('btn-report').disabled = false;
+  $('btn-ignore').disabled = false;
   $('btn-report').textContent = '回報：我記得剛才的答案';
   $('btn-ignore').textContent = '照封存紀錄繼續';
   showScreen('interlude');
@@ -624,14 +981,14 @@ $('btn-report').addEventListener('click', () => {
   setFeedback('interlude-question', '異常已寫入。你的工號現在也出現在回報者欄位。', 'green');
   $('btn-report').disabled = true;
   $('btn-ignore').disabled = true;
-  window.setTimeout(continueToVision, 900);
+  schedule(continueToVision, 900);
 });
 $('btn-ignore').addEventListener('click', () => {
   addDistortion(9);
   $('interlude-message').textContent = '「明智的選擇。繼續看著前方。」訊息的時間戳記，比現在早了 17 分鐘。';
   $('btn-report').disabled = true;
   $('btn-ignore').disabled = true;
-  window.setTimeout(continueToVision, 1200);
+  schedule(continueToVision, 1200);
 });
 
 // Familiar images return with subtle differences, then stop pretending to be tests.
@@ -645,7 +1002,9 @@ function showVisionStep() {
     return;
   }
   const step = visionSteps[visionStep];
-  $('vision-img').src = step.img;
+  const image = $('vision-img');
+  image.alt = '圓形檢測影像';
+  showPreparedImage(image, step.img);
   $('vision-instruction').textContent = step.instruction;
   const options = $('vision-options');
   options.replaceChildren();
@@ -666,19 +1025,23 @@ function checkVision(choice, step) {
   lockOptions('vision-options');
   const correct = choice === step.correct;
   if (visionStep < 2) {
+    playUi('ok');
     setFeedback('vision-feedback', '影像判讀已記錄。請繼續下一張。');
   } else if (correct) {
+    playUi('ok');
     setFeedback('vision-feedback', '判讀已保存。它知道你看見了。', 'amber');
   } else {
     addDistortion(5);
+    playUi('bad');
     setFeedback('vision-feedback', '判讀不一致。影像已被覆寫，原始檔不存在。', 'red');
     flicker(700);
   }
-  window.setTimeout(() => {
+  const delay = visionStep > 1 ? 1250 : 950;
+  schedule(() => {
     visionStep += 1;
     actionLocked = false;
     showVisionStep();
-  }, visionStep > 1 ? 1250 : 950);
+  }, delay);
 }
 
 function showAcuityStep() {
@@ -709,11 +1072,20 @@ function showAcuityStep() {
 
     if (symbol.type === 'E') {
       const orientation = acuityOrientations[Math.floor(Math.random() * acuityOrientations.length)];
-      const letter = document.createElement('span');
-      letter.className = 'acuity-letter';
-      letter.textContent = 'E';
-      letter.style.fontSize = `${step.size}px`;
+      const letter = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      letter.setAttribute('viewBox', '0 0 100 100');
+      letter.setAttribute('class', 'acuity-letter tumbling-e');
+      letter.setAttribute('aria-hidden', 'true');
       letter.style.transform = `rotate(${orientation.rotation}deg)`;
+      [[8, 8, 84, 18], [8, 41, 58, 18], [8, 74, 84, 18]].forEach(([x, y, width, height]) => {
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', String(x));
+        rect.setAttribute('y', String(y));
+        rect.setAttribute('width', String(width));
+        rect.setAttribute('height', String(height));
+        rect.setAttribute('fill', 'currentColor');
+        letter.appendChild(rect);
+      });
       glyph.appendChild(letter);
       if (seenTargets === targetIndex) {
         glyph.classList.add('acuity-target');
@@ -728,11 +1100,11 @@ function showAcuityStep() {
       archiveFrame.className = 'acuity-archive-frame';
       const archive = document.createElement('img');
       archive.className = `acuity-archive-image ${symbol.image.includes('horror') ? 'acuity-archive-skull' : 'acuity-archive-eye'}`;
-      archive.src = `images/${symbol.image}`;
       archive.alt = '封存視力表中的異常影像';
       glyph.setAttribute('aria-label', '封存圖表影像侵入視標列');
       archiveFrame.appendChild(archive);
       glyph.appendChild(archiveFrame);
+      showPreparedImage(archive, `images/${symbol.image}`);
     }
     board.appendChild(glyph);
   });
@@ -757,19 +1129,23 @@ function checkAcuity(choice, step) {
   const expected = step.mode === 'direction' ? acuityTargetAnswer : step.correct;
   const correct = choice === expected;
   if (acuityStep < 2) {
+    playUi('ok');
     setFeedback('acuity-feedback', '回答已記錄。請繼續下一排。');
   } else if (correct) {
+    playUi('ok');
     setFeedback('acuity-feedback', '記錄成功。請不要看向螢幕外。', 'amber');
   } else {
     addDistortion(5);
+    playUi('bad');
     setFeedback('acuity-feedback', '再看一次。它們剛才眨眼了。', 'red');
     flicker(600);
   }
-  window.setTimeout(() => {
+  const delay = acuityStep > 1 ? 1200 : 900;
+  schedule(() => {
     acuityStep += 1;
     actionLocked = false;
     showAcuityStep();
-  }, acuityStep > 1 ? 1200 : 900);
+  }, delay);
 }
 
 // Retinal-memory archive: test the same color clues across ordinary people and things.
@@ -786,7 +1162,7 @@ function renderRecordStep() {
   if (recordStep >= recordsData.length) {
     setFeedback('records-feedback', `五份紀錄已封存。色彩輪廓吻合 ${recordsCorrect} / ${recordsData.length}。`, 'amber');
     actionLocked = true;
-    window.setTimeout(() => {
+    schedule(() => {
       distortion = Math.max(distortion, 86);
       updateMonitor('最後階段 / 替換者辨識', distortion);
       triggerJumpScare(() => {
@@ -815,12 +1191,13 @@ function renderRecordStep() {
     const frame = document.createElement('figure');
     frame.className = `record-frame record-${sample.side}${record.focus ? ` record-${record.focus}` : ''}`;
     const image = document.createElement('img');
-    image.src = sample.image;
     image.alt = `${record.label}，${sample.name}${record.focus ? '，相同取景區段' : ''}`;
+    image.decoding = 'async';
     const caption = document.createElement('figcaption');
     caption.textContent = `${sample.name} / ${record.focus ? '同一區段截圖' : '封存色彩截圖'}`;
     frame.append(image, caption);
     container.appendChild(frame);
+    showPreparedImage(image, sample.image);
   });
 
   const options = $('record-options');
@@ -846,23 +1223,29 @@ function checkRecord(side) {
   if (side === recordNormalSide) {
     recordsCorrect += 1;
     if (recordsData[recordStep].id === 'acuity-chart') noticedChartAnomaly = true;
+    playUi('ok');
     setFeedback('records-feedback', '色彩輪廓吻合。這個人／物件，還記得自己原本的樣子。', 'green');
   } else {
     addDistortion(6);
+    playUi('bad');
     setFeedback('records-feedback', '記憶與備份不一致。檔案卻顯示你剛才選的才是原始版本。', 'red');
     flicker(500);
   }
-  window.setTimeout(() => {
+  schedule(() => {
     recordStep += 1;
     renderRecordStep();
   }, 1050);
 }
 
 function triggerJumpScare(callback) {
-  $('jumpscare').style.display = 'flex';
+  const scare = $('jumpscare');
+  scare.style.display = 'flex';
+  scare.setAttribute('aria-hidden', 'false');
+  scare.focus({ preventScroll: true });
   sting();
-  window.setTimeout(() => {
-    $('jumpscare').style.display = 'none';
+  schedule(() => {
+    scare.style.display = 'none';
+    scare.setAttribute('aria-hidden', 'true');
     callback();
   }, 2600);
 }
@@ -900,8 +1283,9 @@ function initFaces() {
       const image = document.createElement('img');
       const alteration = version.kind === 'altered' ? comparison.alteration : null;
       const usesMatchedBase = alteration === 'subtle' || alteration === 'iris-tint';
-      image.src = usesMatchedBase ? comparison.normal : version.image;
+      const imageSrc = usesMatchedBase ? comparison.normal : version.image;
       image.alt = `${comparison.label}，比對版本 ${index === 0 ? 'A' : 'B'}`;
+      image.decoding = 'async';
       const caption = document.createElement('span');
       caption.className = 'face-label';
       caption.textContent = card.dataset.versionLabel;
@@ -911,22 +1295,23 @@ function initFaces() {
         ['face-eye-echo', 'face-mouth-echo'].forEach((className) => {
           const echo = document.createElement('img');
           echo.className = `face-anomaly-layer ${className}`;
-          echo.src = comparison.normal;
           echo.alt = '';
           echo.setAttribute('aria-hidden', 'true');
           card.appendChild(echo);
+          showPreparedImage(echo, comparison.normal);
         });
       } else if (alteration === 'iris-tint') {
         card.classList.add('iris-tint-altered');
         const echo = document.createElement('img');
         echo.className = 'face-anomaly-layer face-eye-tint';
-        echo.src = comparison.normal;
         echo.alt = '';
         echo.setAttribute('aria-hidden', 'true');
         card.appendChild(echo);
+        showPreparedImage(echo, comparison.normal);
       }
       card.addEventListener('click', () => selectFinalVersion(comparison.id, version.kind, choices, card));
       choices.appendChild(card);
+      showPreparedImage(image, imageSrc);
     });
     pair.append(title, clue, choices);
     container.appendChild(pair);
@@ -943,6 +1328,7 @@ function updateFinalProgress() {
 function selectFinalVersion(id, kind, choices, selectedCard) {
   if (actionLocked) return;
   finalSelections[id] = kind;
+  playUi('select');
   choices.querySelectorAll('button').forEach((card) => {
     const isChosen = card === selectedCard;
     card.classList.toggle('selected', isChosen);
@@ -987,7 +1373,7 @@ function resolveFinalOutcome(isCorrect) {
     return {
       success: false,
       ending: 'reclassified',
-      message: `${reportNote}${echoNote}${chartNote}你在最終比對找回四組原始影像，但前段校準彼此矛盾（色點 ${plateCorrect}/6、色相 ${hueCorrectRounds}/4、封存 ${recordsScore}）。系統把你重新分類為「待確認樣本」，門鎖拒絕辨識你的工號。`
+      message: `${reportNote}${echoNote}${chartNote}你在最終比對找回四組原始影像，但前段校準彼此矛盾（色點 ${plateCorrect}/6、色相 ${hueCorrectRounds}/4、封存 ${recordScore}）。系統把你重新分類為「待確認樣本」，門鎖拒絕辨識你的工號。`
     };
   }
 
@@ -1047,21 +1433,56 @@ $('btn-submit-fakes').addEventListener('click', () => {
   const outcome = resolveFinalOutcome(isCorrect);
 
   setFeedback('fakes-feedback', outcome.message, outcome.success ? 'amber' : 'red');
-  window.setTimeout(() => endGame(outcome.success, outcome.message, outcome.ending), outcome.ending === 'passed' ? 1300 : 1500);
+  schedule(() => endGame(outcome.success, outcome.message, outcome.ending, isCorrect), outcome.ending === 'passed' ? 1300 : 1500);
 });
 
-function endGame(success, message, ending) {
+function endingTone(ending) {
+  if (ending === 'witness' || ending === 'silentWitness') return 'tone-witness';
+  if (ending === 'passed') return 'tone-clear';
+  if (ending === 'reclassified') return 'tone-hold';
+  if (ending === 'reportConflict' || ending === 'silentEcho') return 'tone-static';
+  return 'tone-fracture';
+}
+
+function renderScorecard(finalCorrect) {
+  const score = $('ending-score');
+  score.replaceChildren();
+  [
+    ['色點辨讀', `${plateCorrect} / 6`],
+    ['色相排序', `${hueCorrectRounds} / 4`],
+    ['封存核對', `${recordsCorrect} / 5`],
+    ['最終影像', finalCorrect ? '四組皆為原始' : '有替換者混入'],
+    ['異常回報', hasReportedAnomaly ? '已回報' : '未回報']
+  ].forEach(([label, value]) => {
+    const item = document.createElement('li');
+    const name = document.createElement('span');
+    name.textContent = label;
+    const strong = document.createElement('strong');
+    strong.textContent = value;
+    item.append(name, strong);
+    score.appendChild(item);
+  });
+}
+
+function appendEpilogue(epilogueText) {
+  if (!epilogueText) return;
+  const epilogue = document.createElement('p');
+  epilogue.className = 'epilogue';
+  epilogue.textContent = epilogueText;
+  $('ending-text').appendChild(epilogue);
+}
+
+function endGame(success, message, ending, finalCorrect) {
+  const prior = rememberRun(ending, finalCorrect);
+  const epilogueText = accuracyEpilogue(prior);
   showScreen('ending');
-  screens.ending.classList.remove('false-pass', 'false-pass-revealed');
+  clearEndingTone();
+  screens.ending.classList.add(endingTone(ending));
   $('facility-header').hidden = true;
+  renderScorecard(finalCorrect);
   const title = $('ending-title');
   const text = $('ending-text');
-  const endingTitles = {
-    witness: '回報已受理', reportConflict: '回報待覆核', silentWitness: '未回報的證詞',
-    reportedMisidentified: '回報遭到退件', silentMisidentified: '未回報紀錄', silentEcho: '未存檔的殘影',
-    reclassified: '受試者重新分類', rejected: '回報遭到退件'
-  };
-  title.textContent = endingTitles[ending] || (success ? '檢測通過' : '檢測失敗');
+  title.textContent = ENDING_TITLES[ending] || (success ? '檢測通過' : '檢測失敗');
   title.style.color = success ? 'var(--green)' : 'var(--red)';
   text.replaceChildren();
   const result = document.createElement('p');
@@ -1120,11 +1541,12 @@ function endGame(success, message, ending) {
     lastLine.textContent = '黑暗中，有東西在笑。它現在知道你的名字了。';
   }
   text.append(result, lastLine);
+  if (ending !== 'passed') appendEpilogue(epilogueText);
   title.tabIndex = -1;
   title.focus({ preventScroll: true });
   if (ending === 'passed') {
     // Let the green result feel safe for a beat, then make the exit record contradict it.
-    window.setTimeout(() => {
+    schedule(() => {
       if (!screens.ending.classList.contains('active')) return;
       screens.ending.classList.add('false-pass');
       title.textContent = '離場核對中';
@@ -1152,23 +1574,36 @@ function endGame(success, message, ending) {
           ? '視標裡那雙眼睛出現在監視器中；椅子上的你，正望向同一個方向。'
           : '走廊裡的人剛才回答了你的名字。監視器裡，椅子上的你也在回答。';
         document.title = '有兩個你｜虹膜色彩校準';
+        appendEpilogue(epilogueText);
       });
     }, 1400);
   }
   if (!success) {
     document.body.classList.add('scare');
-    window.setTimeout(() => document.body.classList.remove('scare'), 1800);
+    schedule(() => document.body.classList.remove('scare'), 1800);
   }
 }
 
 $('btn-restart').addEventListener('click', () => {
   resetGame();
+  carryPrior = false;
   $('facility-header').hidden = true;
-  $('btn-report').disabled = false;
-  $('btn-ignore').disabled = false;
-  $('btn-submit-fakes').disabled = false;
   stopAmbient();
+  renderTitleProgress();
   showScreen('title');
 });
 
+$('hue-container').addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+  const buttons = [...$('hue-container').querySelectorAll('button.hue-block')];
+  const current = buttons.indexOf(document.activeElement);
+  if (current < 0) return;
+  event.preventDefault();
+  const next = event.key === 'ArrowRight'
+    ? (current + 1) % buttons.length
+    : (current - 1 + buttons.length) % buttons.length;
+  buttons[next].focus();
+});
+
+renderTitleProgress();
 showScreen('title', false);
